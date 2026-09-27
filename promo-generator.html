@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Генератор на промо кодове</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#14171c; --panel:#1c2028; --panel2:#20242d; --line:#2b303a;
+  --ink:#edeef0; --muted:#8b93a1; --amber:#e8a33d;
+  --green:#4c9a6a; --red:#d9634f;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:inherit;}
+html{height:100%;}
+body{min-height:100%; margin:0; background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif;}
+h1,.brand{font-family:'Space Grotesk',sans-serif;}
+.wrap{max-width:460px; margin:0 auto; padding:24px 18px 48px;}
+.brand{font-weight:700; font-size:17px; margin-bottom:6px;}
+.sub{font-size:12.5px; color:var(--muted); margin-bottom:22px;}
+.card{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:18px; margin-bottom:16px;}
+label{font-size:12.5px; color:var(--muted); display:block; margin:12px 0 5px;}
+label:first-of-type{margin-top:0;}
+input,select{width:100%; background:var(--panel2); border:1px solid var(--line); border-radius:9px; padding:10px 11px; color:var(--ink); font-size:14px; font-family:inherit;}
+input:focus,select:focus{outline:none; border-color:var(--amber);}
+button{border:none; border-radius:10px; padding:12px 18px; font-weight:700; font-size:14.5px; cursor:pointer; font-family:inherit; width:100%; margin-top:16px;}
+button:disabled{opacity:0.6; cursor:default;}
+.primary{background:var(--amber); color:#1a1305;}
+.resultCode{font-family:'Space Grotesk',monospace; font-size:22px; font-weight:700; letter-spacing:1px; text-align:center; background:var(--panel2); border:1px dashed var(--amber); border-radius:12px; padding:16px; margin-top:16px;}
+.copyBtn{background:var(--panel2); border:1px solid var(--line); color:var(--ink);}
+.log{margin-top:8px;}
+.logRow{display:flex; justify-content:space-between; background:var(--panel2); border:1px solid var(--line); border-radius:9px; padding:9px 12px; margin-bottom:6px; font-size:12.5px;}
+.logRow .code{font-weight:700;}
+.logRow .meta{color:var(--muted);}
+.errMsg{color:var(--red); font-size:12.5px; margin-top:8px; min-height:16px;}
+.okMsg{color:var(--green); font-size:12.5px; margin-top:8px; min-height:16px;}
+.note{font-size:11.5px; color:var(--muted); line-height:1.5; margin-top:14px;}
+.warnCard{background:#3a1f1b; border:1px solid var(--red); border-radius:14px; padding:14px 16px; margin-bottom:16px; font-size:12.5px; line-height:1.5;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">Генератор на промо кодове</div>
+  <div class="sub">За партньори — брокери, инфлуенсъри и др. ПИН-ът се проверява на сървъра при всяко генериране, не в браузъра.</div>
+
+  <div id="configWarning"></div>
+
+  <div class="card">
+    <label>ПИН</label>
+    <input id="pinInput" type="password" placeholder="Твоят ПИН">
+    <label>Име на партньора (записва се като бележка към кода)</label>
+    <input id="partnerName" placeholder="Напр. TikTok — Иван, ДЗИ Брокер">
+    <label>Безплатен период</label>
+    <select id="months">
+      <option value="1">1 месец</option>
+      <option value="2">2 месеца</option>
+      <option value="3" selected>3 месеца</option>
+      <option value="6">6 месеца</option>
+      <option value="12">12 месеца</option>
+    </select>
+    <button class="primary" id="genBtn">Генерирай код</button>
+    <div class="errMsg" id="statusMsg"></div>
+    <div id="resultBox"></div>
+  </div>
+
+  <div class="card">
+    <div style="font-weight:600; font-size:14px; margin-bottom:10px;">Кодове, генерирани от този браузър</div>
+    <div class="log" id="log"></div>
+    <div class="note">Този списък е само локален бележник за теб (на това устройство) — истинският запис е в базата данни, тук е само за твоя справка.</div>
+  </div>
+</div>
+
+<script>
+// Попълни тези две стойности според инструкциите след настройка на Supabase.
+const SUPABASE_URL = 'https://zqpomakbhmqhdeuefdfj.supabase.co';
+const FUNCTION_NAME = 'admin-generate-code';
+const CONFIGURED = SUPABASE_URL.startsWith('https://');
+
+if(!CONFIGURED){
+  document.getElementById('configWarning').innerHTML = `<div class="warnCard">Още не е свързано с базата данни — попълни SUPABASE_URL в кода на тази страница според инструкциите.</div>`;
+  document.getElementById('genBtn').disabled = true;
+}
+
+const LOG_KEY = 'promo-generator-log-v1';
+let log = [];
+try{ log = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); }catch(e){}
+function saveLog(){ try{ localStorage.setItem(LOG_KEY, JSON.stringify(log)); }catch(e){} }
+
+function renderLog(){
+  const box = document.getElementById('log');
+  box.innerHTML = log.slice().reverse().map(l=>`
+    <div class="logRow"><span class="code">${l.code}</span><span class="meta">${l.name} · ${l.months} мес.</span></div>
+  `).join('') || '<div style="color:var(--muted);font-size:12.5px;">Още нищо генерирано.</div>';
+}
+renderLog();
+
+document.getElementById('genBtn').addEventListener('click', async ()=>{
+  const pin = document.getElementById('pinInput').value;
+  const name = document.getElementById('partnerName').value.trim() || 'Партньор';
+  const months = document.getElementById('months').value;
+  const btn = document.getElementById('genBtn');
+  const msg = document.getElementById('statusMsg');
+
+  if(!pin){ msg.textContent = 'Въведи ПИН.'; return; }
+
+  btn.disabled = true;
+  msg.className = 'errMsg';
+  msg.textContent = 'Генериране…';
+  document.getElementById('resultBox').innerHTML = '';
+
+  try{
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/${FUNCTION_NAME}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin, name, months })
+    });
+    const data = await res.json();
+
+    if(!res.ok || data.error === 'invalid_pin'){
+      msg.textContent = 'Грешен ПИН.';
+    } else if(data.error){
+      msg.textContent = 'Грешка: ' + data.error;
+    } else {
+      msg.textContent = '';
+      log.push({code: data.code, name, months: data.months});
+      saveLog();
+      renderLog();
+      document.getElementById('resultBox').innerHTML = `
+        <div class="resultCode">${data.code}</div>
+        <button class="copyBtn" id="copyBtn">Копирай кода</button>
+      `;
+      document.getElementById('copyBtn').addEventListener('click', ()=>{
+        navigator.clipboard.writeText(data.code).catch(()=>{});
+        document.getElementById('copyBtn').textContent = 'Копирано ✓';
+      });
+    }
+  }catch(e){
+    msg.textContent = 'Грешка при връзка — опитай пак.';
+  }
+  btn.disabled = false;
+});
+</script>
+</body>
+</html>
