@@ -4,6 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Генератор на промо кодове</title>
+<link rel="manifest" href="promo-manifest.json">
+<meta name="theme-color" content="#14171c">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/promo-192.png">
+<link rel="apple-touch-icon" href="icons/promo-apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Промо кодове">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -147,6 +156,11 @@ document.getElementById('genBtn').addEventListener('click', async ()=>{
   }
   btn.disabled = false;
 });
+
+// Нужно, за да може страницата да се добави като икона на началния екран (Android)
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
 </script>
 </body>
 </html>

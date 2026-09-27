@@ -1,0 +1,18 @@
+{
+  "id": "./promo-generator.html",
+  "name": "Промо кодове",
+  "short_name": "Промо кодове",
+  "description": "Генератор на промо кодове (само за собственика).",
+  "lang": "bg",
+  "start_url": "./promo-generator.html",
+  "scope": "./promo-generator.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#14171c",
+  "theme_color": "#14171c",
+  "icons": [
+    { "src": "icons/promo-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/promo-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/promo-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
