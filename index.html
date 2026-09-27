@@ -83,6 +83,7 @@ h1,.brand{font-family:'Space Grotesk',sans-serif;}
 .status.ok{background:var(--green-dim); color:var(--green);}
 .status.soon{background:var(--amberS-dim); color:var(--amberS);}
 .status.over{background:var(--red-dim); color:var(--red);}
+.status.info{background:var(--panel2); color:var(--muted); border:1px solid var(--line);}
 .item-detail{font-size:12.5px; color:var(--muted); margin-top:6px;}
 .overlay{position:fixed; inset:0; background:rgba(10,11,14,0.6); display:none; align-items:flex-end; justify-content:center; z-index:10;}
 .sheet{background:var(--panel); border:1px solid var(--line); border-radius:18px 18px 0 0; padding:20px 18px calc(20px + env(safe-area-inset-bottom,0px)); width:100%; max-width:480px;}
@@ -285,7 +286,11 @@ function addMonths(dateStr, months){
 function statusFor(def, data, currentKm){
   const rec = data[def.id];
   // missing — няма попълнени данни (не значи, че нещо наближава)
-  // days / kmLeft / expiry — ползват се от лентата със статуса най-горе
+  // days / expiry — ползват се от лентата със статуса най-горе
+  // Маслото и гумите са дневник: приложението не знае реалния пробег, затова са без цвят/срок.
+  if(def.mode==='km' || def.mode==='date_soft'){
+    return (rec && rec.date) ? {cls:'info', label:'Записано'} : {cls:'info', label:'Няма запис', missing:true};
+  }
   if(!rec || !rec.date) return {cls:'soon', label:'Няма данни', missing:true};
   if(def.mode==='date_period'){
     if(!rec.period) return {cls:'soon', label:'Няма период', missing:true};
@@ -302,14 +307,7 @@ function statusFor(def, data, currentKm){
     if(d<=15) return {cls:'soon', label:`${d} дни`, days:d, expiry:rec.expiry};
     return {cls:'ok', label:'Валиден', days:d, expiry:rec.expiry};
   }
-  if(def.mode==='km'){
-    if(!rec.nextKm) return {cls:'soon', label:'Няма данни', missing:true};
-    const left = (parseInt(rec.nextKm,10)||0) - currentKm;
-    if(left<0) return {cls:'over', label:'Просрочен', kmLeft:left};
-    if(left<=1500) return {cls:'soon', label:`${left} км остават`, kmLeft:left};
-    return {cls:'ok', label:'Добре', kmLeft:left};
-  }
-  return {cls:'ok', label:'Записано'};
+  return {cls:'info', label:'Записано'};
 }
 
 // ==== Лентата със статуса най-горе — казва КАКВО наближава, а когато всичко е наред, е приятелска ====
@@ -321,25 +319,16 @@ const HAPPY_LINES = [
   'Документите са в ред — пали и тръгвай 🚗',
   'Чисто досие. Браво на теб 👌',
   'Спокойствие на 4 колела ✨',
-  'Всичко е платено и сменено навреме 🙌'
+  'Всичко е платено навреме 🙌'
 ];
 
 function whenText(s){
-  if(s.kmLeft !== undefined){
-    const km = Math.abs(s.kmLeft).toLocaleString('bg-BG');
-    return s.kmLeft < 0 ? `смяната е просрочена с ${km} км` : `смяна след ${km} км`;
-  }
   if(s.days < 0) return `изтече преди ${-s.days} ${-s.days===1 ? 'ден' : 'дни'}`;
   if(s.days === 0) return 'изтича днес';
   if(s.days === 1) return 'изтича утре';
   return `изтича след ${s.days} дни`;
 }
-// За подреждане по спешност: км се превръщат грубо в дни (≈100 км на ден)
-function urgency(s){ return s.days !== undefined ? s.days : Math.round(s.kmLeft / 100); }
-function phrase(e){
-  const name = SHORT_NAMES[e.def.id] || e.def.title;
-  return e.s.kmLeft !== undefined ? `${name}: ${whenText(e.s)}` : `${name} ${whenText(e.s)}`;
-}
+function phrase(e){ return `${SHORT_NAMES[e.def.id] || e.def.title} ${whenText(e.s)}`; }
 
 // Лентата следи само документите със срок. Маслото и гумите са дневник (кога и на колко км е сменено) —
 // приложението не знае реалния пробег, затова не ги броим като „наближава“.
@@ -353,8 +342,7 @@ function buildSummary(defsList, data, km){
     return {cls:'ok', main:happy, sub:'Следи гражданска, преглед и каско с премиум — ще ти казваме кога изтичат.'};
   }
   const entries = docs.map(def=>({def, s:statusFor(def, data, km)}));
-  const tracked = entries.filter(e=>!e.s.missing && (e.s.days !== undefined || e.s.kmLeft !== undefined))
-                         .sort((a,b)=>urgency(a.s)-urgency(b.s));
+  const tracked = entries.filter(e=>!e.s.missing && e.s.days !== undefined).sort((a,b)=>a.s.days-b.s.days);
   const over = tracked.filter(e=>e.s.cls==='over');
   const soon = tracked.filter(e=>e.s.cls==='soon');
   const missing = entries.filter(e=>e.s.missing).map(e=>SHORT_NAMES[e.def.id] || e.def.title);
@@ -369,9 +357,7 @@ function buildSummary(defsList, data, km){
     return {cls: over.length ? 'over' : 'soon', main:`${icon} ${phrase(urgent[0])}`, sub: rest ? `Също: ${rest}` : 'Натисни реда отдолу, за да го обновиш.'};
   }
   const next = tracked[0];
-  const when = next.s.kmLeft !== undefined
-    ? `${SHORT_NAMES[next.def.id]} — ${whenText(next.s)}`
-    : `${SHORT_NAMES[next.def.id]} на ${fmtDate(next.s.expiry)} (след ${next.s.days} дни)`;
+  const when = `${SHORT_NAMES[next.def.id]} на ${fmtDate(next.s.expiry)} (след ${next.s.days} дни)`;
   // Фразата се сменя всеки ден, но в рамките на деня е една и съща
   const happy = HAPPY_LINES[Math.floor(today / 86400000) % HAPPY_LINES.length];
   let sub = `Следва: ${when}`;
@@ -387,8 +373,13 @@ function detailFor(def, data){
     return `${fmtDate(rec.date)} · ${rec.period} мес. → изтича ${fmtDate(addMonths(rec.date, rec.period))}`;
   }
   if(def.mode==='date') return `${fmtDate(rec.date)}${rec.expiry ? ' → изтича ' + fmtDate(rec.expiry) : ''}`;
-  if(def.mode==='km') return `${fmtDate(rec.date)} · ${rec.km||'-'} км → следваща на ${rec.nextKm||'-'} км`;
-  return `${fmtDate(rec.date)}${rec.note ? ' · '+rec.note : ''}`;
+  const fmtKm = v => v ? (parseInt(v,10)||0).toLocaleString('bg-BG') + ' км' : '';
+  if(def.mode==='km'){
+    const at = rec.km ? ` при ${fmtKm(rec.km)}` : '';
+    const next = rec.nextKm ? ` · следваща при ${fmtKm(rec.nextKm)}` : '';
+    return `Сменено на ${fmtDate(rec.date)}${at}${next}`;
+  }
+  return `Сменени на ${fmtDate(rec.date)}${rec.note ? ' · '+rec.note : ''}`;
 }
 
 function renderSwitcher(){
