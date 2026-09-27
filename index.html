@@ -37,6 +37,7 @@ h1,.brand{font-family:'Space Grotesk',sans-serif;}
 .locked .item-detail{font-size:12.5px; color:var(--muted); margin-top:6px;}
 .lockIcon{position:absolute; top:14px; right:16px; font-size:15px;}
 .unlockCard{background:linear-gradient(135deg,#2a2210,#1c2028); border:1px solid var(--amber); border-radius:16px; padding:18px; margin:6px 0 18px; text-align:center;}
+.premiumBanner{background:rgba(76,154,106,0.12); border:1px solid var(--green); border-radius:12px; padding:9px 14px; margin:0 0 14px; font-size:12.5px; color:var(--green); text-align:center;}
 .unlockTitle{font-weight:700; font-size:15px; margin-bottom:3px;}
 .unlockSub{font-size:12.5px; color:var(--muted); margin-bottom:14px;}
 .unlockBtn{background:var(--amber); color:#1a1305; border:none; border-radius:10px; padding:12px 18px; font-weight:700; font-size:14.5px; cursor:pointer; width:100%;}
@@ -108,7 +109,6 @@ const today = new Date('2026-09-26');
 const CARS_KEY = 'car-tracker-cars-v1';
 const ACTIVE_KEY = 'car-tracker-active-v1';
 const DATA_PREFIX = 'car-tracker-data-';
-const PREMIUM_KEY = 'car-tracker-premium-v1';
 
 const defs = [
   {id:'oil', title:'Смяна на масло', mode:'km', fields:['date','km','nextKm'], premium:false,
@@ -123,8 +123,39 @@ const defs = [
    labels:{date:'Дата на плащане',expiry:'Изтича на'}}
 ];
 
-let isPremium = false;
-try{ isPremium = localStorage.getItem(PREMIUM_KEY) === '1'; }catch(e){}
+// ==== Премиум статус с реален срок на годност ====
+// PREMIUM_UNTIL_KEY пази или 'paid' (платен абонамент — безсрочен, докато не се отмени),
+// или ISO дата, до която важи достъпът, получен от промо код (безплатен пробен период от партньор).
+const PREMIUM_UNTIL_KEY = 'car-tracker-premium-until-v1';
+const MAX_CARS_PREMIUM = 10;
+
+function todayISO(){ return today.toISOString().slice(0,10); }
+
+function getPremiumStatus(){
+  let stored;
+  try{ stored = localStorage.getItem(PREMIUM_UNTIL_KEY); }catch(e){}
+  if(!stored) return {active:false, permanent:false};
+  if(stored === 'paid') return {active:true, permanent:true};
+  const daysLeft = daysUntil(stored);
+  if(daysLeft === null) return {active:false, permanent:false};
+  return {active: daysLeft >= 0, permanent:false, until: stored, daysLeft};
+}
+
+// При нов промо код пазим по-дългия от двата срока (не скъсяваме съществуващ достъп).
+function grantPremiumUntil(dateStr){
+  let current;
+  try{ current = localStorage.getItem(PREMIUM_UNTIL_KEY); }catch(e){}
+  if(current === 'paid') return; // вече има платен абонамент — няма какво да удължаваме
+  if(!current || new Date(dateStr) > new Date(current)){
+    try{ localStorage.setItem(PREMIUM_UNTIL_KEY, dateStr); }catch(e){}
+  }
+}
+function grantPremiumPaid(){
+  try{ localStorage.setItem(PREMIUM_UNTIL_KEY, 'paid'); }catch(e){}
+}
+
+let premiumStatus = getPremiumStatus();
+let isPremium = premiumStatus.active;
 
 const TRIAL_KEY = 'car-tracker-trial-start-v1';
 const TRIAL_DAYS = 30;
@@ -265,7 +296,8 @@ function detailFor(def, data){
 function renderSwitcher(){
   const box = document.getElementById('carSwitcher');
   const pills = cars.map(c=>`<div class="carPill ${c.id===activeId?'active':''}" data-id="${c.id}">${c.name}</div>`).join('');
-  const canAdd = isPremium || cars.length===0;
+  const carLimit = isPremium ? MAX_CARS_PREMIUM : 1;
+  const canAdd = cars.length < carLimit;
   const addPill = canAdd
     ? `<div class="carPill addNew" id="addCarPill">+ Кола</div>`
     : `<div class="carPill addNew" id="addCarPill" style="opacity:0.5;">🔒 + Кола</div>`;
@@ -283,7 +315,9 @@ function renderSwitcher(){
         note.style.cssText = 'font-size:12px;color:var(--muted);margin:-8px 0 14px;';
         box.parentNode.insertBefore(note, box.nextSibling);
       }
-      note.textContent = 'Втора кола е достъпна само с абонамент — 9,99 €/година.';
+      note.textContent = isPremium
+        ? `Достигнат е максимумът от ${MAX_CARS_PREMIUM} коли.`
+        : 'Втора кола е достъпна само с абонамент — 9,99 €/година.';
     }
   });
 }
@@ -309,7 +343,12 @@ function renderMain(){
   activeId = car.id;
   const data = getData(car.id);
   const trial = trialStatus();
+  premiumStatus = getPremiumStatus();
+  isPremium = premiumStatus.active;
   const fullAccess = isPremium || trial.active;
+  const premiumBanner = (isPremium && !premiumStatus.permanent)
+    ? `<div class="premiumBanner">Премиум достъп (от промо код) — остават ${premiumStatus.daysLeft} дни, до ${premiumStatus.until}</div>`
+    : '';
   const unlocked = defs.filter(d=>!d.premium || fullAccess);
   const locked = defs.filter(d=>d.premium && !fullAccess);
 
@@ -351,6 +390,7 @@ function renderMain(){
 
   box.innerHTML = `
     <div class="carcard"><h2>${car.name}</h2><div class="sub">Текущ пробег: ${(car.km||0).toLocaleString('bg-BG')} км</div></div>
+    ${premiumBanner}
     <div class="summary"><div class="sdot" style="background:${colors[worst]}"></div>${texts[worst]}</div>
     <div id="items">${itemsHtml}</div>
     <div id="lockedItems">${lockedHtml}</div>
@@ -367,8 +407,9 @@ function renderMain(){
   });
   const unlockBtn = document.getElementById('unlockBtn');
   if(unlockBtn) unlockBtn.addEventListener('click', ()=>{
-    isPremium = true;
-    try{ localStorage.setItem(PREMIUM_KEY,'1'); }catch(e){}
+    grantPremiumPaid();
+    premiumStatus = getPremiumStatus();
+    isPremium = premiumStatus.active;
     renderMain();
   });
   const applyPromoBtn = document.getElementById('applyPromoBtn');
@@ -376,10 +417,12 @@ function renderMain(){
     const code = (document.getElementById('promoInput').value || '').trim().toUpperCase();
     const msg = document.getElementById('promoMsg');
     if(code === OWNER_CODE){
+      const until = addMonths(todayISO(), 12);
+      grantPremiumUntil(until);
+      premiumStatus = getPremiumStatus();
+      isPremium = premiumStatus.active;
       msg.className = 'promoMsg ok';
-      msg.textContent = 'Личен код приет — 1 година пълен достъп.';
-      isPremium = true;
-      try{ localStorage.setItem(PREMIUM_KEY,'1'); }catch(e){}
+      msg.textContent = `Личен код приет — пълен достъп до ${until}.`;
       renderMain();
       return;
     }
@@ -392,10 +435,12 @@ function renderMain(){
       try{
         const result = await redeemCodeRemote(code);
         if(result.valid){
+          const until = addMonths(todayISO(), result.months);
+          grantPremiumUntil(until);
+          premiumStatus = getPremiumStatus();
+          isPremium = premiumStatus.active;
           msg.className = 'promoMsg ok';
-          msg.textContent = `Код приет — ${result.months} мес. безплатно, после 0,99 €/мес. или 9,99 €/год.`;
-          isPremium = true;
-          try{ localStorage.setItem(PREMIUM_KEY,'1'); }catch(e){}
+          msg.textContent = `Код приет — безплатно до ${until}, после 0,99 €/мес. или 9,99 €/год.`;
           renderMain();
         } else {
           msg.className = 'promoMsg bad';
@@ -412,10 +457,12 @@ function renderMain(){
     // Резервен режим (Supabase още не е настроен) — работи offline, но не е еднократен
     const found = validatePromoCodeLocal(code);
     if(found){
+      const until = addMonths(todayISO(), found.months);
+      grantPremiumUntil(until);
+      premiumStatus = getPremiumStatus();
+      isPremium = premiumStatus.active;
       msg.className = 'promoMsg ok';
-      msg.textContent = `Код приет — ${found.months} мес. безплатно, после 0,99 €/мес. или 9,99 €/год.`;
-      isPremium = true;
-      try{ localStorage.setItem(PREMIUM_KEY,'1'); }catch(e){}
+      msg.textContent = `Код приет — безплатно до ${until}, после 0,99 €/мес. или 9,99 €/год.`;
       renderMain();
     } else {
       msg.className = 'promoMsg bad';
