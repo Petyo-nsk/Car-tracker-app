@@ -1,6 +1,6 @@
 // Service worker — пази приложението на устройството, за да работи и без интернет.
 // При всяка промяна по файловете вдигни версията, за да се изчисти старият кеш.
-const CACHE = 'car-tracker-v1';
+const CACHE = 'car-tracker-v2';
 const APP_FILES = [
   './',
   './index.html',
