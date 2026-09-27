@@ -341,8 +341,18 @@ function phrase(e){
   return e.s.kmLeft !== undefined ? `${name}: ${whenText(e.s)}` : `${name} ${whenText(e.s)}`;
 }
 
+// Лентата следи само документите със срок. Маслото и гумите са дневник (кога и на колко км е сменено) —
+// приложението не знае реалния пробег, затова не ги броим като „наближава“.
+const SUMMARY_IDS = ['civil', 'inspection', 'casco'];
+
 function buildSummary(defsList, data, km){
-  const entries = defsList.map(def=>({def, s:statusFor(def, data, km)}));
+  const docs = defsList.filter(def=>SUMMARY_IDS.includes(def.id));
+  if(!docs.length){
+    // Безплатна версия — документите са заключени
+    const happy = HAPPY_LINES[Math.floor(today / 86400000) % HAPPY_LINES.length];
+    return {cls:'ok', main:happy, sub:'Следи гражданска, преглед и каско с премиум — ще ти казваме кога изтичат.'};
+  }
+  const entries = docs.map(def=>({def, s:statusFor(def, data, km)}));
   const tracked = entries.filter(e=>!e.s.missing && (e.s.days !== undefined || e.s.kmLeft !== undefined))
                          .sort((a,b)=>urgency(a.s)-urgency(b.s));
   const over = tracked.filter(e=>e.s.cls==='over');
@@ -350,7 +360,7 @@ function buildSummary(defsList, data, km){
   const missing = entries.filter(e=>e.s.missing).map(e=>SHORT_NAMES[e.def.id] || e.def.title);
 
   if(!tracked.length){
-    return {cls:'none', main:'Добави първия запис 👇', sub:'Натисни някой ред отдолу и въведи датата.'};
+    return {cls:'none', main:'Кога изтичат документите ти? 👇', sub:'Въведи датите за гражданска, преглед и каско — ще ти казваме кога наближават.'};
   }
   if(over.length || soon.length){
     const urgent = [...over, ...soon];
