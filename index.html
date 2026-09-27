@@ -140,6 +140,8 @@ const defs = [
    labels:{date:'Дата',note:'Бележка (напр. зимни / летни)'}},
   {id:'civil', title:'Гражданска отговорност', mode:'date_period', fields:['date','period'], premium:true,
    labels:{date:'Дата на плащане',period:'Период'}},
+  {id:'vignette', title:'Винетка', mode:'vignette', fields:['vtype','date'], premium:true,
+   labels:{vtype:'Вид',date:'Начало на валидност'}},
   {id:'inspection', title:'Годишен технически преглед', mode:'date', fields:['date','expiry'], premium:true,
    labels:{date:'Дата на преглед',expiry:'Изтича на'}},
   {id:'casco', title:'Каско', mode:'date', fields:['date','expiry'], premium:true,
@@ -277,6 +279,31 @@ function fmtDate(dateStr){
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr || '');
   return m ? `${m[3]}.${m[2]}.${m[1]}` : (dateStr || '');
 }
+// ==== Винетка: видът определя колко важи. Пазим последния валиден ден (по-скоро рано, отколкото късно). ====
+const VIGNETTE_TYPES = {
+  day:     'Еднодневна',
+  weekend: 'Уикенд',
+  week:    'Седмична',
+  month:   'Месечна',
+  quarter: 'Тримесечна',
+  year:    'Годишна'
+};
+function addDays(dateStr, n){
+  const d = new Date(dateStr);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0,10);
+}
+function vignetteExpiry(start, vtype){
+  if(!start) return null;
+  switch(vtype){
+    case 'day':     return start;
+    case 'weekend': return addDays(start, (7 - new Date(start).getUTCDay()) % 7); // до неделята включително
+    case 'week':    return addDays(start, 6);
+    case 'month':   return addDays(addMonths(start, 1), -1);
+    case 'quarter': return addDays(start, 89);                                   // 90 дни
+    default:        return addDays(addMonths(start, 12), -1);                    // годишна
+  }
+}
 function addMonths(dateStr, months){
   const d = new Date(dateStr);
   d.setMonth(d.getMonth() + parseInt(months,10));
@@ -300,6 +327,13 @@ function statusFor(def, data, currentKm){
     if(d<=15) return {cls:'soon', label:`${d} дни`, days:d, expiry};
     return {cls:'ok', label:'Валидна', days:d, expiry};
   }
+  if(def.mode==='vignette'){
+    const expiry = vignetteExpiry(rec.date, rec.vtype);
+    const d = daysUntil(expiry);
+    if(d<=7) return {cls:'over', label: d<0 ? 'Изтекла' : (d===0 ? 'Днес' : `${d} дни`), days:d, expiry};
+    if(d<=15) return {cls:'soon', label:`${d} дни`, days:d, expiry};
+    return {cls:'ok', label:'Валидна', days:d, expiry};
+  }
   if(def.mode==='date'){
     const d = daysUntil(rec.expiry);
     if(d===null) return {cls:'soon', label:'Няма дата', missing:true};
@@ -311,7 +345,7 @@ function statusFor(def, data, currentKm){
 }
 
 // ==== Лентата със статуса най-горе — казва КАКВО наближава, а когато всичко е наред, е приятелска ====
-const SHORT_NAMES = {oil:'Маслото', tires:'Гумите', civil:'Гражданската', inspection:'Прегледът', casco:'Каското'};
+const SHORT_NAMES = {oil:'Маслото', tires:'Гумите', civil:'Гражданската', vignette:'Винетката', inspection:'Прегледът', casco:'Каското'};
 const HAPPY_LINES = [
   'Всичко е наред — карай спокойно 😎',
   'Колата ти е щастлива 💚',
@@ -332,14 +366,14 @@ function phrase(e){ return `${SHORT_NAMES[e.def.id] || e.def.title} ${whenText(e
 
 // Лентата следи само документите със срок. Маслото и гумите са дневник (кога и на колко км е сменено) —
 // приложението не знае реалния пробег, затова не ги броим като „наближава“.
-const SUMMARY_IDS = ['civil', 'inspection', 'casco'];
+const SUMMARY_IDS = ['civil', 'vignette', 'inspection', 'casco'];
 
 function buildSummary(defsList, data, km){
   const docs = defsList.filter(def=>SUMMARY_IDS.includes(def.id));
   if(!docs.length){
     // Безплатна версия — документите са заключени
     const happy = HAPPY_LINES[Math.floor(today / 86400000) % HAPPY_LINES.length];
-    return {cls:'ok', main:happy, sub:'Следи гражданска, преглед и каско с премиум — ще ти казваме кога изтичат.'};
+    return {cls:'ok', main:happy, sub:'Следи гражданска, винетка, преглед и каско с премиум — ще ти казваме кога изтичат.'};
   }
   const entries = docs.map(def=>({def, s:statusFor(def, data, km)}));
   const tracked = entries.filter(e=>!e.s.missing && e.s.days !== undefined).sort((a,b)=>a.s.days-b.s.days);
@@ -348,7 +382,7 @@ function buildSummary(defsList, data, km){
   const missing = entries.filter(e=>e.s.missing).map(e=>SHORT_NAMES[e.def.id] || e.def.title);
 
   if(!tracked.length){
-    return {cls:'none', main:'Кога изтичат документите ти? 👇', sub:'Въведи датите за гражданска, преглед и каско — ще ти казваме кога наближават.'};
+    return {cls:'none', main:'Кога изтичат документите ти? 👇', sub:'Въведи датите за гражданска, винетка, преглед и каско — ще ти казваме кога наближават.'};
   }
   if(over.length || soon.length){
     const urgent = [...over, ...soon];
@@ -371,6 +405,9 @@ function detailFor(def, data){
   if(def.mode==='date_period'){
     if(!rec.period) return fmtDate(rec.date);
     return `${fmtDate(rec.date)} · ${rec.period} мес. → изтича ${fmtDate(addMonths(rec.date, rec.period))}`;
+  }
+  if(def.mode==='vignette'){
+    return `${VIGNETTE_TYPES[rec.vtype] || VIGNETTE_TYPES.year} · от ${fmtDate(rec.date)} → изтича ${fmtDate(vignetteExpiry(rec.date, rec.vtype))}`;
   }
   if(def.mode==='date') return `${fmtDate(rec.date)}${rec.expiry ? ' → изтича ' + fmtDate(rec.expiry) : ''}`;
   const fmtKm = v => v ? (parseInt(v,10)||0).toLocaleString('bg-BG') + ' км' : '';
@@ -561,6 +598,11 @@ function openSheet(id, carId){
       return `<label>${def.labels[f]}</label><select data-f="period">${opts}</select>
         <label>Изтича на</label><div class="calcExpiry" id="calcExpiry">—</div>`;
     }
+    if(f==='vtype'){
+      const cur = rec.vtype || 'year';
+      const opts = Object.entries(VIGNETTE_TYPES).map(([k,v])=>`<option value="${k}" ${cur===k?'selected':''}>${v}</option>`).join('');
+      return `<label>${def.labels[f]}</label><select data-f="vtype">${opts}</select>`;
+    }
     const type = (f==='date'||f==='expiry') ? 'date' : (f==='km'||f==='nextKm') ? 'number' : 'text';
     return `<label>${def.labels[f]}</label><input data-f="${f}" type="${type}" value="${rec[f]||''}">`;
   }).join('');
@@ -573,6 +615,18 @@ function openSheet(id, carId){
     };
     dateInp.addEventListener('input', updateExpiry);
     periodSel.addEventListener('change', updateExpiry);
+    updateExpiry();
+  }
+  if(def.mode==='vignette'){
+    // Крайната дата се смята сама от вида и началото на валидност
+    document.getElementById('sheetFields').insertAdjacentHTML('beforeend', `<label>Изтича на</label><div class="calcExpiry" id="calcExpiry">—</div>`);
+    const dateInp = document.querySelector('#sheetFields [data-f="date"]');
+    const typeSel = document.querySelector('#sheetFields [data-f="vtype"]');
+    const updateExpiry = ()=>{
+      document.getElementById('calcExpiry').textContent = dateInp.value ? fmtDate(vignetteExpiry(dateInp.value, typeSel.value)) : '— (избери начало на валидност)';
+    };
+    dateInp.addEventListener('input', updateExpiry);
+    typeSel.addEventListener('change', updateExpiry);
     updateExpiry();
   }
   document.getElementById('overlay').style.display='flex';
