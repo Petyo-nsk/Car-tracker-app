@@ -1,49 +1,466 @@
--- Изтрива старата таблица (ако има), после създава всичко наново.
--- Безопасно е за пускане повече от веднъж.
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Моят автомобил — проследяване</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#14171c; --panel:#1c2028; --panel2:#20242d; --line:#2b303a;
+  --ink:#edeef0; --muted:#8b93a1; --amber:#e8a33d;
+  --green:#4c9a6a; --green-dim:#1c3324;
+  --red:#d9634f; --red-dim:#3a1f1b;
+  --amberS:#e0a83d; --amberS-dim:#3a2f14;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:inherit;}
+html{scroll-padding-top:env(safe-area-inset-top,0px); height:100%;}
+body{height:100%; margin:0; background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif;}
+h1,.brand{font-family:'Space Grotesk',sans-serif;}
+.wrap{max-width:480px; margin:0 auto; padding:20px 18px 48px;}
+.brand{display:flex; align-items:center; gap:10px; margin-bottom:18px;}
+.brand .dot{width:10px;height:10px;border-radius:50%;background:var(--amber); box-shadow:0 0 10px var(--amber);}
+.brand span{font-weight:700; font-size:17px;}
+.carSwitcher{display:flex; gap:8px; overflow-x:auto; margin-bottom:14px; padding-bottom:2px;}
+.carPill{flex-shrink:0; background:var(--panel); border:1px solid var(--line); border-radius:100px; padding:8px 14px; font-size:13px; font-weight:600; color:var(--muted); cursor:pointer; white-space:nowrap;}
+.carPill.active{background:var(--amber); color:#1a1305; border-color:var(--amber);}
+.carPill.addNew{color:var(--amber); border-style:dashed;}
+.carcard{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px 18px; margin-bottom:14px;}
+.carcard h2{margin:0 0 3px; font-size:18px;}
+.carcard .sub{font-size:12.5px; color:var(--muted);}
+.summary{background:var(--panel2); border:1px solid var(--line); border-radius:14px; padding:12px 16px; margin-bottom:14px; font-size:13.5px; font-weight:600; display:flex; align-items:center; gap:8px;}
+.summary .sdot{width:8px;height:8px;border-radius:50%;}
+.item{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:10px; cursor:pointer;}
+.locked{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:10px; opacity:0.45; position:relative;}
+.locked .item-title{font-weight:600; font-size:14.5px;}
+.locked .item-detail{font-size:12.5px; color:var(--muted); margin-top:6px;}
+.lockIcon{position:absolute; top:14px; right:16px; font-size:15px;}
+.unlockCard{background:linear-gradient(135deg,#2a2210,#1c2028); border:1px solid var(--amber); border-radius:16px; padding:18px; margin:6px 0 18px; text-align:center;}
+.premiumBanner{background:rgba(76,154,106,0.12); border:1px solid var(--green); border-radius:12px; padding:9px 14px; margin:0 0 14px; font-size:12.5px; color:var(--green); text-align:center;}
+.unlockTitle{font-weight:700; font-size:15px; margin-bottom:3px;}
+.unlockSub{font-size:12.5px; color:var(--muted); margin-bottom:14px;}
+.unlockBtn{background:var(--amber); color:#1a1305; border:none; border-radius:10px; padding:12px 18px; font-weight:700; font-size:14.5px; cursor:pointer; width:100%;}
+.promoRow{display:flex; gap:8px; margin-bottom:10px;}
+.promoRow input{flex:1; background:var(--panel2); border:1px solid var(--line); border-radius:9px; padding:9px 10px; color:var(--ink); font-size:13px;}
+.applyPromo{background:var(--panel2); border:1px solid var(--line); color:var(--ink); border-radius:9px; padding:0 14px; font-size:12.5px; font-weight:600; cursor:pointer;}
+.promoMsg{font-size:12px; margin-bottom:10px; min-height:14px;}
+.promoMsg.ok{color:var(--green);}
+.promoMsg.bad{color:var(--red);}
+.adminLink{text-align:center; margin-top:22px; font-size:12px; color:var(--muted); text-decoration:underline; cursor:pointer;}
+.adminPanel{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px; margin-top:14px;}
+.adminPanel h4{margin:0 0 12px; font-size:14px;}
+.genRow{display:flex; gap:8px; margin-bottom:14px;}
+.genRow input{flex:1;}
+.genRow select{width:110px;}
+.genBtn{background:var(--amber); color:#1a1305; font-size:12.5px; padding:0 14px; border-radius:9px; font-weight:700; cursor:pointer; border:none;}
+.codeRow{display:flex; justify-content:space-between; align-items:center; background:var(--panel2); border:1px solid var(--line); border-radius:10px; padding:9px 12px; margin-bottom:8px; font-size:12.5px;}
+.codeRow .code{font-weight:700; letter-spacing:0.5px;}
+.codeRow .meta{color:var(--muted);}
+.ownerNote{font-size:11.5px; color:var(--muted); margin-top:10px; line-height:1.5;}
+.brokerMsg{text-align:center; font-size:12.5px; color:var(--green); margin-top:6px; min-height:14px;}
+.item-top{display:flex; justify-content:space-between; align-items:center;}
+.item-title{font-weight:600; font-size:14.5px;}
+.status{font-size:11px; font-weight:700; padding:3px 10px; border-radius:100px;}
+.status.ok{background:var(--green-dim); color:var(--green);}
+.status.soon{background:var(--amberS-dim); color:var(--amberS);}
+.status.over{background:var(--red-dim); color:var(--red);}
+.item-detail{font-size:12.5px; color:var(--muted); margin-top:6px;}
+.overlay{position:fixed; inset:0; background:rgba(10,11,14,0.6); display:none; align-items:flex-end; justify-content:center; z-index:10;}
+.sheet{background:var(--panel); border:1px solid var(--line); border-radius:18px 18px 0 0; padding:20px 18px calc(20px + env(safe-area-inset-bottom,0px)); width:100%; max-width:480px;}
+.sheet h3{margin:0 0 14px; font-size:16px;}
+label{font-size:12.5px; color:var(--muted); display:block; margin:10px 0 5px;}
+label:first-of-type{margin-top:0;}
+input,select{width:100%; background:var(--panel2); border:1px solid var(--line); border-radius:9px; padding:10px 11px; color:var(--ink); font-size:14px; font-family:inherit;}
+input:focus,select:focus{outline:none; border-color:var(--amber);}
+.row2{display:flex; gap:10px;}
+.row2>div{flex:1;}
+.btnrow{display:flex; gap:10px; margin-top:16px;}
+button{border:none; border-radius:10px; padding:12px; font-weight:700; font-size:14.5px; cursor:pointer; font-family:inherit;}
+.save{flex:1; background:var(--amber); color:#1a1305;}
+.cancel{flex:1; background:var(--panel2); color:var(--ink); border:1px solid var(--line);}
+.emptyState{background:var(--panel); border:1px dashed var(--line); border-radius:16px; padding:28px 20px; text-align:center;}
+.emptyState .big{font-size:32px; margin-bottom:10px;}
+.emptyState p{color:var(--muted); font-size:13.5px; margin:0 0 16px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><div class="dot"></div><span>Моят автомобил</span></div>
 
-drop table if exists promo_codes cascade;
+  <div class="carSwitcher" id="carSwitcher"></div>
 
-create table promo_codes (
-  code text primary key,
-  months int not null,
-  generated_by text,
-  reusable boolean not null default false, -- true само за личния код на собственика — никога не се маркира като използван
-  used boolean not null default false,
-  used_at timestamptz,
-  created_at timestamptz not null default now()
-);
+  <div id="mainArea"></div>
+</div>
 
-alter table promo_codes enable row level security;
+<div class="overlay" id="overlay">
+  <div class="sheet">
+    <h3 id="sheetTitle">Редакция</h3>
+    <div id="sheetFields"></div>
+    <div class="btnrow">
+      <button class="cancel" id="cancelBtn" type="button">Отказ</button>
+      <button class="save" id="saveBtn" type="button">Запази</button>
+    </div>
+  </div>
+</div>
 
--- Личният код на собственика — вместо да стои написан в JavaScript кода на приложението
--- (където всеки може да го прочете), сега живее само тук, в базата данни.
-insert into promo_codes (code, months, generated_by, reusable)
-values ('MOD-2026-VIP', 12, 'owner', true);
+<script>
+const today = new Date('2026-09-26');
+const CARS_KEY = 'car-tracker-cars-v1';
+const ACTIVE_KEY = 'car-tracker-active-v1';
+const DATA_PREFIX = 'car-tracker-data-';
 
-create or replace function redeem_promo_code(p_code text)
-returns json
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_months int;
-  v_reusable boolean;
-begin
-  select months, reusable into v_months, v_reusable
-    from promo_codes
-    where code = p_code and (used = false or reusable = true);
+const defs = [
+  {id:'oil', title:'Смяна на масло', mode:'km', fields:['date','km','nextKm'], premium:false,
+   labels:{date:'Дата',km:'Пробег при смяна (км)',nextKm:'Следваща смяна (км)'}},
+  {id:'tires', title:'Смяна на гуми', mode:'date_soft', fields:['date','note'], premium:false,
+   labels:{date:'Дата',note:'Бележка (напр. зимни / летни)'}},
+  {id:'civil', title:'Гражданска отговорност', mode:'date_period', fields:['date','period'], premium:true,
+   labels:{date:'Дата на плащане',period:'Период'}},
+  {id:'inspection', title:'Годишен технически преглед', mode:'date', fields:['date','expiry'], premium:true,
+   labels:{date:'Дата на преглед',expiry:'Изтича на'}},
+  {id:'casco', title:'Каско', mode:'date', fields:['date','expiry'], premium:true,
+   labels:{date:'Дата на плащане',expiry:'Изтича на'}}
+];
 
-  if v_months is null then
-    return json_build_object('valid', false);
-  end if;
+// ==== Премиум статус с реален срок на годност ====
+const PREMIUM_UNTIL_KEY = 'car-tracker-premium-until-v1';
+const MAX_CARS_PREMIUM = 10;
 
-  if not v_reusable then
-    update promo_codes set used = true, used_at = now() where code = p_code;
-  end if;
+function todayISO(){ return today.toISOString().slice(0,10); }
 
-  return json_build_object('valid', true, 'months', v_months);
-end;
-$$;
+function getPremiumStatus(){
+  let stored;
+  try{ stored = localStorage.getItem(PREMIUM_UNTIL_KEY); }catch(e){}
+  if(!stored) return {active:false, permanent:false};
+  if(stored === 'paid') return {active:true, permanent:true};
+  const daysLeft = daysUntil(stored);
+  if(daysLeft === null) return {active:false, permanent:false};
+  return {active: daysLeft >= 0, permanent:false, until: stored, daysLeft};
+}
 
-grant execute on function redeem_promo_code(text) to anon;
+function grantPremiumUntil(dateStr){
+  let current;
+  try{ current = localStorage.getItem(PREMIUM_UNTIL_KEY); }catch(e){}
+  if(current === 'paid') return;
+  if(!current || new Date(dateStr) > new Date(current)){
+    try{ localStorage.setItem(PREMIUM_UNTIL_KEY, dateStr); }catch(e){}
+  }
+}
+function grantPremiumPaid(){
+  try{ localStorage.setItem(PREMIUM_UNTIL_KEY, 'paid'); }catch(e){}
+}
+
+let premiumStatus = getPremiumStatus();
+let isPremium = premiumStatus.active;
+
+const TRIAL_KEY = 'car-tracker-trial-start-v1';
+const TRIAL_DAYS = 30;
+function trialStatus(){
+  let start;
+  try{ start = localStorage.getItem(TRIAL_KEY); }catch(e){}
+  if(!start) return {active:false, started:false, daysLeft:0};
+  const startDate = new Date(start);
+  const daysPassed = Math.floor((today - startDate) / 86400000);
+  const daysLeft = TRIAL_DAYS - daysPassed;
+  return {active: daysLeft > 0, started:true, daysLeft: Math.max(0,daysLeft)};
+}
+function startTrial(){
+  try{ localStorage.setItem(TRIAL_KEY, today.toISOString().slice(0,10)); }catch(e){}
+}
+
+const SUPABASE_URL = 'https://zqpomakbhmqhdeuefdfj.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_TMj8xYglcKFXlCdEx-r0kg_wCxeJ45x';
+const SUPABASE_CONFIGURED = SUPABASE_URL.startsWith('https://') && SUPABASE_ANON_KEY.length > 10;
+
+async function redeemCodeRemote(code){
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/redeem_promo_code`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+    },
+    body: JSON.stringify({ p_code: code })
+  });
+  if(!res.ok) throw new Error('network');
+  return res.json();
+}
+
+const CODE_SALT = 'MyAuto2026Secret';
+function codeChecksum(base, months){
+  const s = base + '|' + months + '|' + CODE_SALT;
+  let h = 0;
+  for(let i=0;i<s.length;i++){ h = (h*31 + s.charCodeAt(i)) >>> 0; }
+  return h.toString(36).toUpperCase().padStart(5,'0').slice(0,5);
+}
+function validatePromoCodeLocal(code){
+  const parts = code.split('-');
+  if(parts.length < 3) return null;
+  const checksumPart = parts.pop();
+  const monthsPart = parts.pop();
+  const base = parts.join('-');
+  const m = /^(\d+)M$/.exec(monthsPart);
+  if(!m) return null;
+  const months = parseInt(m[1],10);
+  if(codeChecksum(base, months) !== checksumPart) return null;
+  return {base, months};
+}
+
+let cars = [];
+let activeId = null;
+try{
+  const rawCars = localStorage.getItem(CARS_KEY);
+  cars = rawCars ? JSON.parse(rawCars) : [{id:'car1', name:'VW Golf VII, 2016', km:142300}];
+  activeId = localStorage.getItem(ACTIVE_KEY) || (cars[0] && cars[0].id);
+}catch(e){ cars = []; }
+
+function saveCars(){ try{ localStorage.setItem(CARS_KEY, JSON.stringify(cars)); }catch(e){} }
+function saveActive(){ try{ localStorage.setItem(ACTIVE_KEY, activeId); }catch(e){} }
+
+function getData(carId){
+  try{
+    const raw = localStorage.getItem(DATA_PREFIX+carId);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  if(carId==='car1'){
+    return {
+      oil:{date:'2026-06-12', km:'138500', nextKm:'148500'},
+      civil:{date:'2026-01-15', period:'12'},
+      inspection:{date:'2025-11-02', expiry:'2026-11-02'},
+      casco:{date:'2026-01-15', expiry:'2027-01-15'}
+    };
+  }
+  return {};
+}
+function saveData(carId, data){ try{ localStorage.setItem(DATA_PREFIX+carId, JSON.stringify(data)); }catch(e){} }
+
+function daysUntil(dateStr){
+  if(!dateStr) return null;
+  const d = new Date(dateStr);
+  return Math.round((d - today) / 86400000);
+}
+function addMonths(dateStr, months){
+  const d = new Date(dateStr);
+  d.setMonth(d.getMonth() + parseInt(months,10));
+  return d.toISOString().slice(0,10);
+}
+
+function statusFor(def, data, currentKm){
+  const rec = data[def.id];
+  if(!rec || !rec.date) return {cls:'soon', label:'Няма данни'};
+  if(def.mode==='date_period'){
+    if(!rec.period) return {cls:'soon', label:'Няма период'};
+    const expiry = addMonths(rec.date, rec.period);
+    const d = daysUntil(expiry);
+    if(d<=7) return {cls:'over', label: d<0 ? 'Изтекла' : `${d} дни`};
+    if(d<=15) return {cls:'soon', label:`${d} дни`};
+    return {cls:'ok', label:'Валидна'};
+  }
+  if(def.mode==='date'){
+    const d = daysUntil(rec.expiry);
+    if(d===null) return {cls:'soon', label:'Няма дата'};
+    if(d<=7) return {cls:'over', label: d<0 ? 'Изтекъл' : `${d} дни`};
+    if(d<=15) return {cls:'soon', label:`${d} дни`};
+    return {cls:'ok', label:'Валиден'};
+  }
+  if(def.mode==='km'){
+    const left = (parseInt(rec.nextKm,10)||0) - currentKm;
+    if(left<0) return {cls:'over', label:'Просрочен'};
+    if(left<=1500) return {cls:'soon', label:`${left} км остават`};
+    return {cls:'ok', label:'Добре'};
+  }
+  return {cls:'ok', label:'Записано'};
+}
+
+function detailFor(def, data){
+  const rec = data[def.id];
+  if(!rec || !rec.date) return 'Няма въведени данни';
+  if(def.mode==='date_period'){
+    if(!rec.period) return rec.date;
+    return `${rec.date} · ${rec.period} мес. → изтича ${addMonths(rec.date, rec.period)}`;
+  }
+  if(def.mode==='date') return `${rec.date}${rec.expiry ? ' → изтича ' + rec.expiry : ''}`;
+  if(def.mode==='km') return `${rec.date} · ${rec.km||'-'} км → следваща на ${rec.nextKm||'-'} км`;
+  return `${rec.date}${rec.note ? ' · '+rec.note : ''}`;
+}
+
+function renderSwitcher(){
+  const box = document.getElementById('carSwitcher');
+  const pills = cars.map(c=>`<div class="carPill ${c.id===activeId?'active':''}" data-id="${c.id}">${c.name}</div>`).join('');
+  const carLimit = isPremium ? MAX_CARS_PREMIUM : 1;
+  const canAdd = cars.length < carLimit;
+  const addPill = canAdd
+    ? `<div class="carPill addNew" id="addCarPill">+ Кола</div>`
+    : `<div class="carPill addNew" id="addCarPill" style="opacity:0.5;">🔒 + Кола</div>`;
+  box.innerHTML = pills + addPill;
+  box.querySelectorAll('.carPill[data-id]').forEach(el=>{
+    el.addEventListener('click', ()=>{ activeId = el.dataset.id; saveActive(); renderAll(); });
+  });
+  document.getElementById('addCarPill').addEventListener('click', ()=>{
+    if(canAdd){ openAddCar(); }
+    else {
+      let note = document.getElementById('addCarNote');
+      if(!note){
+        note = document.createElement('div');
+        note.id = 'addCarNote';
+        note.style.cssText = 'font-size:12px;color:var(--muted);margin:-8px 0 14px;';
+        box.parentNode.insertBefore(note, box.nextSibling);
+      }
+      note.textContent = isPremium
+        ? `Достигнат е максимумът от ${MAX_CARS_PREMIUM} коли.`
+        : 'Втора кола е достъпна само с абонамент — 9,99 €/година.';
+    }
+  });
+}
+
+function openAddCar(){
+  document.getElementById('sheetTitle').textContent = 'Добави кола';
+  document.getElementById('sheetFields').innerHTML = `
+    <label>Марка и модел</label><input data-f="name" placeholder="Напр. VW Golf VII, 2016">
+    <label>Текущ пробег (км)</label><input data-f="km" type="number" placeholder="142300">
+  `;
+  document.getElementById('overlay').style.display='flex';
+  document.getElementById('overlay').dataset.editing = '__newcar';
+}
+
+function renderMain(){
+  const box = document.getElementById('mainArea');
+  if(!cars.length){
+    box.innerHTML = `<div class="emptyState"><div class="big">🚗</div><p>Все още нямаш добавена кола.</p><button class="save" id="firstCarBtn" style="width:auto;padding:11px 20px;">Добави кола</button></div>`;
+    document.getElementById('firstCarBtn').addEventListener('click', openAddCar);
+    return;
+  }
+  const car = cars.find(c=>c.id===activeId) || cars[0];
+  activeId = car.id;
+  const data = getData(car.id);
+  const trial = trialStatus();
+  premiumStatus = getPremiumStatus();
+  isPremium = premiumStatus.active;
+  const fullAccess = isPremium || trial.active;
+  const premiumBanner = (isPremium && !premiumStatus.permanent)
+    ? `<div class="premiumBanner">Премиум достъп (от промо код) — остават ${premiumStatus.daysLeft} дни, до ${premiumStatus.until}</div>`
+    : '';
+  const unlocked = defs.filter(d=>!d.premium || fullAccess);
+  const locked = defs.filter(d=>d.premium && !fullAccess);
+
+  const statuses = unlocked.map(d=>statusFor(d, data, car.km));
+  const worst = statuses.some(s=>s.cls==='over') ? 'over' : statuses.some(s=>s.cls==='soon') ? 'soon' : 'ok';
+  const colors = {ok:'var(--green)', soon:'var(--amberS)', over:'var(--red)'};
+  const texts = {ok:'Всичко е наред', soon:'Нещо наближава', over:'Има просрочено'};
+
+  const itemsHtml = unlocked.map(def=>{
+    const s = statusFor(def, data, car.km);
+    return `<div class="item" data-id="${def.id}">
+      <div class="item-top"><div class="item-title">${def.title}</div><div class="status ${s.cls}">${s.label}</div></div>
+      <div class="item-detail">${detailFor(def, data)}</div>
+    </div>`;
+  }).join('');
+
+  const lockedHtml = locked.map(def=>`
+    <div class="locked"><div class="lockIcon">🔒</div><div class="item-title">${def.title}</div><div class="item-detail">Заключено</div></div>
+  `).join('');
+
+  let unlockBlock = '';
+  if(locked.length){
+    if(trial.active){
+      unlockBlock = `<div class="unlockCard"><div class="unlockTitle">Пробен период: ${trial.daysLeft} дни остават</div><div class="unlockSub">После 0,99 €/месец или 9,99 €/година</div></div>`;
+    } else if(!trial.started){
+      unlockBlock = `<div class="unlockCard"><div class="unlockTitle">1 месец безплатно</div><div class="unlockSub">Пробвай всичко за 1 кола, без карта</div>
+        <button class="unlockBtn" id="trialBtn" style="margin-bottom:10px;">Започни безплатния месец</button>
+        <div class="promoRow"><input id="promoInput" placeholder="Промокод (по избор)"><button class="applyPromo" id="applyPromoBtn">Приложи</button></div>
+        <div class="promoMsg" id="promoMsg"></div>
+        <div class="unlockSub" style="margin:10px 0 6px;">или директно абонамент</div>
+        <button class="unlockBtn" id="unlockBtn">0,99 €/мес. или 9,99 €/год.</button></div>`;
+    } else {
+      unlockBlock = `<div class="unlockCard"><div class="unlockTitle">Пробният период изтече</div><div class="unlockSub">0,99 €/месец или 9,99 €/година</div>
+        <div class="promoRow"><input id="promoInput" placeholder="Промокод (по избор)"><button class="applyPromo" id="applyPromoBtn">Приложи</button></div>
+        <div class="promoMsg" id="promoMsg"></div>
+        <button class="unlockBtn" id="unlockBtn">Абонирай се</button></div>`;
+    }
+  }
+
+  box.innerHTML = `
+    <div class="carcard"><h2>${car.name}</h2><div class="sub">Текущ пробег: ${(car.km||0).toLocaleString('bg-BG')} км</div></div>
+    ${premiumBanner}
+    <div class="summary"><div class="sdot" style="background:${colors[worst]}"></div>${texts[worst]}</div>
+    <div id="items">${itemsHtml}</div>
+    <div id="lockedItems">${lockedHtml}</div>
+    ${unlockBlock}
+  `;
+
+  box.querySelectorAll('.item').forEach(el=>{
+    el.addEventListener('click', ()=>openSheet(el.dataset.id, car.id));
+  });
+  const trialBtn = document.getElementById('trialBtn');
+  if(trialBtn) trialBtn.addEventListener('click', ()=>{
+    startTrial();
+    renderMain();
+  });
+  const unlockBtn = document.getElementById('unlockBtn');
+  if(unlockBtn) unlockBtn.addEventListener('click', ()=>{
+    grantPremiumPaid();
+    premiumStatus = getPremiumStatus();
+    isPremium = premiumStatus.active;
+    renderMain();
+  });
+  const applyPromoBtn = document.getElementById('applyPromoBtn');
+  if(applyPromoBtn) applyPromoBtn.addEventListener('click', async ()=>{
+    const code = (document.getElementById('promoInput').value || '').trim().toUpperCase();
+    const msg = document.getElementById('promoMsg');
+
+    applyPromoBtn.disabled = true;
+    msg.className = 'promoMsg';
+    msg.textContent = 'Проверка…';
+
+    if(SUPABASE_CONFIGURED){
+      try{
+        const result = await redeemCodeRemote(code);
+        if(result.valid){
+          const until = addMonths(todayISO(), result.months);
+          grantPremiumUntil(until);
+          premiumStatus = getPremiumStatus();
+          isPremium = premiumStatus.active;
+          msg.className = 'promoMsg ok';
+          msg.textContent = `Код приет — безплатно до ${until}, после 0,99 €/мес. или 9,99 €/год.`;
+          renderMain();
+        } else {
+          msg.className = 'promoMsg bad';
+          msg.textContent = 'Невалиден или вече използван код';
+        }
+      }catch(e){
+        msg.className = 'promoMsg bad';
+        msg.textContent = 'Грешка при връзка — опитай пак';
+      }
+      applyPromoBtn.disabled = false;
+      return;
+    }
+
+    const found = validatePromoCodeLocal(code);
+    if(found){
+      const until = addMonths(todayISO(), found.months);
+      grantPremiumUntil(until);
+      premiumStatus = getPremiumStatus();
+      isPremium = premiumStatus.active;
+      msg.className = 'promoMsg ok';
+      msg.textContent = `Код приет — безплатно до ${until}, после 0,99 €/мес. или 9,99 €/год.`;
+      renderMain();
+    } else {
+      msg.className = 'promoMsg bad';
+      msg.textContent = 'Невалиден код';
+    }
+    applyPromoBtn.disabled = false;
+  });
+}
+
+function renderAll(){ renderSwitcher(); renderMain(); }
+
+function openSheet(id, carId){
+  const def = defs.find(d=>d.id===id);
+  const data = getData(carId);
+  const rec = data[id] || {};
+  document.getElementById('sheetTitle').textContent = def.title;
+  document.getElementById('sheetFields').innerHTML = def.fields.map(f=>{
+    if(f==='period'){
+      const opts = [3,6,12].map(m=>`<option value="${m}" ${String(rec.period)===String(m)?'selected':''}>${m} месеца</option>`).join('');
+      return `<label>${def.l
