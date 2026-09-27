@@ -74,6 +74,7 @@ button:disabled{opacity:0.6; cursor:default;}
 <script>
 // Попълни тези две стойности според инструкциите след настройка на Supabase.
 const SUPABASE_URL = 'https://zqpomakbhmqhdeuefdfj.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_TMj8xYglcKFXlCdEx-r0kg_wCxeJ45x';
 const FUNCTION_NAME = 'admin-generate-code';
 const CONFIGURED = SUPABASE_URL.startsWith('https://');
 
@@ -112,15 +113,21 @@ document.getElementById('genBtn').addEventListener('click', async ()=>{
   try{
     const res = await fetch(`${SUPABASE_URL}/functions/v1/${FUNCTION_NAME}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+      },
       body: JSON.stringify({ pin, name, months })
     });
-    const data = await res.json();
+    const data = await res.json().catch(()=>({}));
 
-    if(!res.ok || data.error === 'invalid_pin'){
+    if(data.error === 'invalid_pin'){
       msg.textContent = 'Грешен ПИН.';
     } else if(data.error){
       msg.textContent = 'Грешка: ' + data.error;
+    } else if(!res.ok){
+      msg.textContent = 'Грешка при връзка (код ' + res.status + ') — опитай пак.';
     } else {
       msg.textContent = '';
       log.push({code: data.code, name, months: data.months});
