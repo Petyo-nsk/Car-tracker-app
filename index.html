@@ -261,6 +261,11 @@ function daysUntil(dateStr){
   const d = new Date(dateStr);
   return Math.round((d - today) / 86400000);
 }
+// Показва датата по българския начин: '2026-01-15' → '15.01.2026'. Вътрешно пазим 'ГГГГ-ММ-ДД'.
+function fmtDate(dateStr){
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr || '');
+  return m ? `${m[3]}.${m[2]}.${m[1]}` : (dateStr || '');
+}
 function addMonths(dateStr, months){
   const d = new Date(dateStr);
   d.setMonth(d.getMonth() + parseInt(months,10));
@@ -298,12 +303,12 @@ function detailFor(def, data){
   const rec = data[def.id];
   if(!rec || !rec.date) return 'Няма въведени данни';
   if(def.mode==='date_period'){
-    if(!rec.period) return rec.date;
-    return `${rec.date} · ${rec.period} мес. → изтича ${addMonths(rec.date, rec.period)}`;
+    if(!rec.period) return fmtDate(rec.date);
+    return `${fmtDate(rec.date)} · ${rec.period} мес. → изтича ${fmtDate(addMonths(rec.date, rec.period))}`;
   }
-  if(def.mode==='date') return `${rec.date}${rec.expiry ? ' → изтича ' + rec.expiry : ''}`;
-  if(def.mode==='km') return `${rec.date} · ${rec.km||'-'} км → следваща на ${rec.nextKm||'-'} км`;
-  return `${rec.date}${rec.note ? ' · '+rec.note : ''}`;
+  if(def.mode==='date') return `${fmtDate(rec.date)}${rec.expiry ? ' → изтича ' + fmtDate(rec.expiry) : ''}`;
+  if(def.mode==='km') return `${fmtDate(rec.date)} · ${rec.km||'-'} км → следваща на ${rec.nextKm||'-'} км`;
+  return `${fmtDate(rec.date)}${rec.note ? ' · '+rec.note : ''}`;
 }
 
 function renderSwitcher(){
@@ -360,7 +365,7 @@ function renderMain(){
   isPremium = premiumStatus.active;
   const fullAccess = isPremium || trial.active;
   const premiumBanner = (isPremium && !premiumStatus.permanent)
-    ? `<div class="premiumBanner">Премиум достъп (от промо код) — остават ${premiumStatus.daysLeft} дни, до ${premiumStatus.until}</div>`
+    ? `<div class="premiumBanner">Премиум достъп (от промо код) — остават ${premiumStatus.daysLeft} дни, до ${fmtDate(premiumStatus.until)}</div>`
     : '';
   const unlocked = defs.filter(d=>!d.premium || fullAccess);
   const locked = defs.filter(d=>d.premium && !fullAccess);
@@ -443,7 +448,7 @@ function renderMain(){
           premiumStatus = getPremiumStatus();
           isPremium = premiumStatus.active;
           msg.className = 'promoMsg ok';
-          msg.textContent = `Код приет — безплатно до ${until}, после 0,99 €/мес. или 9,99 €/год.`;
+          msg.textContent = `Код приет — безплатно до ${fmtDate(until)}, после 0,99 €/мес. или 9,99 €/год.`;
           renderAll();
         } else {
           msg.className = 'promoMsg bad';
@@ -465,7 +470,7 @@ function renderMain(){
       premiumStatus = getPremiumStatus();
       isPremium = premiumStatus.active;
       msg.className = 'promoMsg ok';
-      msg.textContent = `Код приет — безплатно до ${until}, после 0,99 €/мес. или 9,99 €/год.`;
+      msg.textContent = `Код приет — безплатно до ${fmtDate(until)}, после 0,99 €/мес. или 9,99 €/год.`;
       renderAll();
     } else {
       msg.className = 'promoMsg bad';
@@ -496,7 +501,7 @@ function openSheet(id, carId){
     const dateInp = document.querySelector('#sheetFields [data-f="date"]');
     const periodSel = document.querySelector('#sheetFields [data-f="period"]');
     const updateExpiry = ()=>{
-      document.getElementById('calcExpiry').textContent = dateInp.value ? addMonths(dateInp.value, periodSel.value) : '— (избери дата на плащане)';
+      document.getElementById('calcExpiry').textContent = dateInp.value ? fmtDate(addMonths(dateInp.value, periodSel.value)) : '— (избери дата на плащане)';
     };
     dateInp.addEventListener('input', updateExpiry);
     periodSel.addEventListener('change', updateExpiry);
