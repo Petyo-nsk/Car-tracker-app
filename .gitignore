@@ -1,0 +1,8 @@
+# Лична информация — остава само на компютъра, никога в публичното хранилище
+CLAUDE.local.md
+backend/private/
+
+# Системни файлове
+.DS_Store
+Thumbs.db
+node_modules/

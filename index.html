@@ -47,6 +47,18 @@ h1,.brand{font-family:'Space Grotesk',sans-serif;}
 .promoMsg{font-size:12px; margin-bottom:10px; min-height:14px;}
 .promoMsg.ok{color:var(--green);}
 .promoMsg.bad{color:var(--red);}
+.adminLink{text-align:center; margin-top:22px; font-size:12px; color:var(--muted); text-decoration:underline; cursor:pointer;}
+.adminPanel{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px; margin-top:14px;}
+.adminPanel h4{margin:0 0 12px; font-size:14px;}
+.genRow{display:flex; gap:8px; margin-bottom:14px;}
+.genRow input{flex:1;}
+.genRow select{width:110px;}
+.genBtn{background:var(--amber); color:#1a1305; font-size:12.5px; padding:0 14px; border-radius:9px; font-weight:700; cursor:pointer; border:none;}
+.codeRow{display:flex; justify-content:space-between; align-items:center; background:var(--panel2); border:1px solid var(--line); border-radius:10px; padding:9px 12px; margin-bottom:8px; font-size:12.5px;}
+.codeRow .code{font-weight:700; letter-spacing:0.5px;}
+.codeRow .meta{color:var(--muted);}
+.ownerNote{font-size:11.5px; color:var(--muted); margin-top:10px; line-height:1.5;}
+.brokerMsg{text-align:center; font-size:12.5px; color:var(--green); margin-top:6px; min-height:14px;}
 .item-top{display:flex; justify-content:space-between; align-items:center;}
 .item-title{font-weight:600; font-size:14.5px;}
 .status{font-size:11px; font-weight:700; padding:3px 10px; border-radius:100px;}
@@ -61,6 +73,8 @@ label{font-size:12.5px; color:var(--muted); display:block; margin:10px 0 5px;}
 label:first-of-type{margin-top:0;}
 input,select{width:100%; background:var(--panel2); border:1px solid var(--line); border-radius:9px; padding:10px 11px; color:var(--ink); font-size:14px; font-family:inherit;}
 input:focus,select:focus{outline:none; border-color:var(--amber);}
+.row2{display:flex; gap:10px;}
+.row2>div{flex:1;}
 .btnrow{display:flex; gap:10px; margin-top:16px;}
 button{border:none; border-radius:10px; padding:12px; font-weight:700; font-size:14.5px; cursor:pointer; font-family:inherit;}
 .save{flex:1; background:var(--amber); color:#1a1305;}
@@ -73,7 +87,9 @@ button{border:none; border-radius:10px; padding:12px; font-weight:700; font-size
 <body>
 <div class="wrap">
   <div class="brand"><div class="dot"></div><span>Моят автомобил</span></div>
+
   <div class="carSwitcher" id="carSwitcher"></div>
+
   <div id="mainArea"></div>
 </div>
 
@@ -107,6 +123,9 @@ const defs = [
    labels:{date:'Дата на плащане',expiry:'Изтича на'}}
 ];
 
+// ==== Премиум статус с реален срок на годност ====
+// PREMIUM_UNTIL_KEY пази или 'paid' (платен абонамент — безсрочен, докато не се отмени),
+// или ISO дата, до която важи достъпът, получен от промо код (безплатен пробен период от партньор).
 const PREMIUM_UNTIL_KEY = 'car-tracker-premium-until-v1';
 const MAX_CARS_PREMIUM = 10;
 
@@ -122,10 +141,11 @@ function getPremiumStatus(){
   return {active: daysLeft >= 0, permanent:false, until: stored, daysLeft};
 }
 
+// При нов промо код пазим по-дългия от двата срока (не скъсяваме съществуващ достъп).
 function grantPremiumUntil(dateStr){
   let current;
   try{ current = localStorage.getItem(PREMIUM_UNTIL_KEY); }catch(e){}
-  if(current === 'paid') return;
+  if(current === 'paid') return; // вече има платен абонамент — няма какво да удължаваме
   if(!current || new Date(dateStr) > new Date(current)){
     try{ localStorage.setItem(PREMIUM_UNTIL_KEY, dateStr); }catch(e){}
   }
@@ -152,6 +172,7 @@ function startTrial(){
   try{ localStorage.setItem(TRIAL_KEY, today.toISOString().slice(0,10)); }catch(e){}
 }
 
+// ==== Supabase (реална, споделена проверка на кодове — виж setup инструкциите) ====
 const SUPABASE_URL = 'https://zqpomakbhmqhdeuefdfj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_TMj8xYglcKFXlCdEx-r0kg_wCxeJ45x';
 const SUPABASE_CONFIGURED = SUPABASE_URL.startsWith('https://') && SUPABASE_ANON_KEY.length > 10;
@@ -167,9 +188,14 @@ async function redeemCodeRemote(code){
     body: JSON.stringify({ p_code: code })
   });
   if(!res.ok) throw new Error('network');
-  return res.json();
+  return res.json(); // {valid: true, months: N} или {valid: false}
 }
 
+// Личният код на собственика вече НЕ стои тук — той живее само в базата данни (Supabase),
+// точно като партньорските кодове, за да не може никой да го прочете в изходния код на страницата.
+// Локалната формула по-долу е РЕЗЕРВЕН вариант (работи offline), докато Supabase не е
+// настроен — кодовете, генерирани от него, НЕ са истински еднократни. След настройка на
+// Supabase, реалните партньорски кодове идват от базата и минават през redeemCodeRemote.
 const CODE_SALT = 'MyAuto2026Secret';
 function codeChecksum(base, months){
   const s = base + '|' + months + '|' + CODE_SALT;
@@ -419,6 +445,7 @@ function renderMain(){
       return;
     }
 
+    // Резервен режим (Supabase още не е настроен) — работи offline, но не е еднократен
     const found = validatePromoCodeLocal(code);
     if(found){
       const until = addMonths(todayISO(), found.months);
