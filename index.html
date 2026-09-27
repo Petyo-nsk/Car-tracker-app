@@ -47,18 +47,6 @@ h1,.brand{font-family:'Space Grotesk',sans-serif;}
 .promoMsg{font-size:12px; margin-bottom:10px; min-height:14px;}
 .promoMsg.ok{color:var(--green);}
 .promoMsg.bad{color:var(--red);}
-.adminLink{text-align:center; margin-top:22px; font-size:12px; color:var(--muted); text-decoration:underline; cursor:pointer;}
-.adminPanel{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px; margin-top:14px;}
-.adminPanel h4{margin:0 0 12px; font-size:14px;}
-.genRow{display:flex; gap:8px; margin-bottom:14px;}
-.genRow input{flex:1;}
-.genRow select{width:110px;}
-.genBtn{background:var(--amber); color:#1a1305; font-size:12.5px; padding:0 14px; border-radius:9px; font-weight:700; cursor:pointer; border:none;}
-.codeRow{display:flex; justify-content:space-between; align-items:center; background:var(--panel2); border:1px solid var(--line); border-radius:10px; padding:9px 12px; margin-bottom:8px; font-size:12.5px;}
-.codeRow .code{font-weight:700; letter-spacing:0.5px;}
-.codeRow .meta{color:var(--muted);}
-.ownerNote{font-size:11.5px; color:var(--muted); margin-top:10px; line-height:1.5;}
-.brokerMsg{text-align:center; font-size:12.5px; color:var(--green); margin-top:6px; min-height:14px;}
 .item-top{display:flex; justify-content:space-between; align-items:center;}
 .item-title{font-weight:600; font-size:14.5px;}
 .status{font-size:11px; font-weight:700; padding:3px 10px; border-radius:100px;}
@@ -73,8 +61,6 @@ label{font-size:12.5px; color:var(--muted); display:block; margin:10px 0 5px;}
 label:first-of-type{margin-top:0;}
 input,select{width:100%; background:var(--panel2); border:1px solid var(--line); border-radius:9px; padding:10px 11px; color:var(--ink); font-size:14px; font-family:inherit;}
 input:focus,select:focus{outline:none; border-color:var(--amber);}
-.row2{display:flex; gap:10px;}
-.row2>div{flex:1;}
 .btnrow{display:flex; gap:10px; margin-top:16px;}
 button{border:none; border-radius:10px; padding:12px; font-weight:700; font-size:14.5px; cursor:pointer; font-family:inherit;}
 .save{flex:1; background:var(--amber); color:#1a1305;}
@@ -87,9 +73,7 @@ button{border:none; border-radius:10px; padding:12px; font-weight:700; font-size
 <body>
 <div class="wrap">
   <div class="brand"><div class="dot"></div><span>Моят автомобил</span></div>
-
   <div class="carSwitcher" id="carSwitcher"></div>
-
   <div id="mainArea"></div>
 </div>
 
@@ -123,7 +107,6 @@ const defs = [
    labels:{date:'Дата на плащане',expiry:'Изтича на'}}
 ];
 
-// ==== Премиум статус с реален срок на годност ====
 const PREMIUM_UNTIL_KEY = 'car-tracker-premium-until-v1';
 const MAX_CARS_PREMIUM = 10;
 
@@ -402,7 +385,7 @@ function renderMain(){
     grantPremiumPaid();
     premiumStatus = getPremiumStatus();
     isPremium = premiumStatus.active;
-    renderMain();
+    renderAll();
   });
   const applyPromoBtn = document.getElementById('applyPromoBtn');
   if(applyPromoBtn) applyPromoBtn.addEventListener('click', async ()=>{
@@ -423,7 +406,7 @@ function renderMain(){
           isPremium = premiumStatus.active;
           msg.className = 'promoMsg ok';
           msg.textContent = `Код приет — безплатно до ${until}, после 0,99 €/мес. или 9,99 €/год.`;
-          renderMain();
+          renderAll();
         } else {
           msg.className = 'promoMsg bad';
           msg.textContent = 'Невалиден или вече използван код';
@@ -444,7 +427,7 @@ function renderMain(){
       isPremium = premiumStatus.active;
       msg.className = 'promoMsg ok';
       msg.textContent = `Код приет — безплатно до ${until}, после 0,99 €/мес. или 9,99 €/год.`;
-      renderMain();
+      renderAll();
     } else {
       msg.className = 'promoMsg bad';
       msg.textContent = 'Невалиден код';
@@ -463,4 +446,41 @@ function openSheet(id, carId){
   document.getElementById('sheetFields').innerHTML = def.fields.map(f=>{
     if(f==='period'){
       const opts = [3,6,12].map(m=>`<option value="${m}" ${String(rec.period)===String(m)?'selected':''}>${m} месеца</option>`).join('');
-      return `<label>${def.l
+      return `<label>${def.labels[f]}</label><select data-f="period">${opts}</select>`;
+    }
+    const type = (f==='date'||f==='expiry') ? 'date' : (f==='km'||f==='nextKm') ? 'number' : 'text';
+    return `<label>${def.labels[f]}</label><input data-f="${f}" type="${type}" value="${rec[f]||''}">`;
+  }).join('');
+  document.getElementById('overlay').style.display='flex';
+  document.getElementById('overlay').dataset.editing = id;
+  document.getElementById('overlay').dataset.carId = carId;
+}
+
+document.getElementById('cancelBtn').addEventListener('click', ()=>{ document.getElementById('overlay').style.display='none'; });
+document.getElementById('overlay').addEventListener('click', (e)=>{ if(e.target.id==='overlay') e.target.style.display='none'; });
+
+document.getElementById('saveBtn').addEventListener('click', ()=>{
+  const editing = document.getElementById('overlay').dataset.editing;
+  const vals = {};
+  document.querySelectorAll('#sheetFields input, #sheetFields select').forEach(inp=>{ vals[inp.dataset.f] = inp.value; });
+
+  if(editing==='__newcar'){
+    const id = 'car'+Date.now();
+    cars.push({id, name: vals.name || 'Нова кола', km: parseInt(vals.km,10)||0});
+    saveCars();
+    activeId = id; saveActive();
+    renderAll();
+  } else {
+    const carId = document.getElementById('overlay').dataset.carId;
+    const data = getData(carId);
+    data[editing] = vals;
+    saveData(carId, data);
+    renderMain();
+  }
+  document.getElementById('overlay').style.display='none';
+});
+
+renderAll();
+</script>
+</body>
+</html>
