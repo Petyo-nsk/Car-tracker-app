@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Моят автомобил — проследяване</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#14171c">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Моят автомобил">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -73,6 +81,7 @@ label{font-size:12.5px; color:var(--muted); display:block; margin:10px 0 5px;}
 label:first-of-type{margin-top:0;}
 input,select{width:100%; background:var(--panel2); border:1px solid var(--line); border-radius:9px; padding:10px 11px; color:var(--ink); font-size:14px; font-family:inherit;}
 input:focus,select:focus{outline:none; border-color:var(--amber);}
+.calcExpiry{background:var(--panel2); border:1px dashed var(--line); border-radius:9px; padding:10px 11px; font-size:14px; font-weight:600; color:var(--amber);}
 .row2{display:flex; gap:10px;}
 .row2>div{flex:1;}
 .btnrow{display:flex; gap:10px; margin-top:16px;}
@@ -105,7 +114,10 @@ button{border:none; border-radius:10px; padding:12px; font-weight:700; font-size
 </div>
 
 <script>
-const today = new Date('2026-09-26');
+// Днешната дата (без час), в същия вид като датите от полетата — 'ГГГГ-ММ-ДД' в полунощ UTC,
+// за да излиза точно броят на дните до изтичане.
+const now = new Date();
+const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 const CARS_KEY = 'car-tracker-cars-v1';
 const ACTIVE_KEY = 'car-tracker-active-v1';
 const DATA_PREFIX = 'car-tracker-data-';
@@ -472,12 +484,24 @@ function openSheet(id, carId){
   document.getElementById('sheetTitle').textContent = def.title;
   document.getElementById('sheetFields').innerHTML = def.fields.map(f=>{
     if(f==='period'){
-      const opts = [3,6,12].map(m=>`<option value="${m}" ${String(rec.period)===String(m)?'selected':''}>${m} месеца</option>`).join('');
-      return `<label>${def.labels[f]}</label><select data-f="period">${opts}</select>`;
+      const opts = [3,6,12].map(m=>`<option value="${m}" ${String(rec.period||12)===String(m)?'selected':''}>${m} месеца</option>`).join('');
+      return `<label>${def.labels[f]}</label><select data-f="period">${opts}</select>
+        <label>Изтича на</label><div class="calcExpiry" id="calcExpiry">—</div>`;
     }
     const type = (f==='date'||f==='expiry') ? 'date' : (f==='km'||f==='nextKm') ? 'number' : 'text';
     return `<label>${def.labels[f]}</label><input data-f="${f}" type="${type}" value="${rec[f]||''}">`;
   }).join('');
+  if(def.mode==='date_period'){
+    // Крайната дата се смята сама от датата на плащане + избрания период
+    const dateInp = document.querySelector('#sheetFields [data-f="date"]');
+    const periodSel = document.querySelector('#sheetFields [data-f="period"]');
+    const updateExpiry = ()=>{
+      document.getElementById('calcExpiry').textContent = dateInp.value ? addMonths(dateInp.value, periodSel.value) : '— (избери дата на плащане)';
+    };
+    dateInp.addEventListener('input', updateExpiry);
+    periodSel.addEventListener('change', updateExpiry);
+    updateExpiry();
+  }
   document.getElementById('overlay').style.display='flex';
   document.getElementById('overlay').dataset.editing = id;
   document.getElementById('overlay').dataset.carId = carId;
@@ -508,6 +532,11 @@ document.getElementById('saveBtn').addEventListener('click', ()=>{
 });
 
 renderAll();
+
+// PWA — позволява „Добави към началния екран“ и работа без интернет
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
 </script>
 </body>
 </html>
