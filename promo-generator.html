@@ -174,6 +174,15 @@ document.getElementById('statsBtn').addEventListener('click', async ()=>{
           <div class="logRow"><span><span class="code">${escapeHtml(r.code)}</span><br><span class="meta">${escapeHtml(r.generated_by)} · ${r.months} мес. · последно ${fmtDate(r.last_used)}</span></span><span class="code" style="font-size:16px;">${r.clients}</span></div>
         `).join('') + `<div class="note">Общо клиенти от партньорски кодове: <b>${total}</b></div>`
         : '<div style="color:var(--muted);font-size:12.5px;">Още няма партньорски кодове.</div>';
+      if(data.renew){
+        const n = (p, e, k)=> (data.renew.find(r=>r.product===p && r.event===e) || {})[k] || 0;
+        const row = (p, title)=>`
+          <div class="logRow"><span><span class="code">${title}</span><br><span class="meta">отвориха прозореца · натиснаха „Продължи към брокера“</span></span>
+          <span class="code" style="font-size:14px; text-align:right;">${n(p,'open','last30')} · ${n(p,'go','last30')}<br><span class="meta">общо ${n(p,'open','total')} · ${n(p,'go','total')}</span></span></div>`;
+        box.innerHTML += `<div style="font-weight:600; font-size:13.5px; margin:16px 0 6px;">Бутон „Поднови“ — последните 30 дни</div>`
+          + row('civil', 'Поднови ГО') + row('vignette', 'Купи винетка')
+          + `<div class="note">Всяко устройство се брои веднъж на ден. Демо режимът не се брои.</div>`;
+      }
     }
   }catch(e){
     msg.textContent = 'Грешка при връзка — опитай пак.';

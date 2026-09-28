@@ -74,7 +74,19 @@ Deno.serve(async (req) => {
       }))
       stats.sort((a, b) => b.clients - a.clients)
 
-      return json({ stats })
+      // Натискания на „Поднови ГО“ / „Купи винетка“ — общо и за последните 30 дни
+      const since = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
+      const renew = await Promise.all(
+        [['civil', 'open'], ['civil', 'go'], ['vignette', 'open'], ['vignette', 'go']].map(async ([product, event]) => {
+          const base = () => supabase.from('renew_clicks').select('id', { count: 'exact', head: true })
+            .eq('product', product).eq('event', event)
+          const { count: total } = await base()
+          const { count: last30 } = await base().gte('clicked_on', since)
+          return { product, event, total: total || 0, last30: last30 || 0 }
+        })
+      )
+
+      return json({ stats, renew })
     }
 
     const monthsNum = parseInt(months, 10)

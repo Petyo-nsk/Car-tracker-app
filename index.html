@@ -102,6 +102,15 @@ button{border:none; border-radius:10px; padding:12px; font-weight:700; font-size
 .emptyState{background:var(--panel); border:1px dashed var(--line); border-radius:16px; padding:28px 20px; text-align:center;}
 .emptyState .big{font-size:32px; margin-bottom:10px;}
 .emptyState p{color:var(--muted); font-size:13.5px; margin:0 0 16px;}
+.renewBtn{display:inline-block; margin-top:10px; background:transparent; color:var(--amber); border:1px solid var(--amber); border-radius:100px; padding:7px 14px; font-size:12.5px; font-weight:700;}
+.renewBtn.hot{background:var(--amber); color:#1a1305;}
+.summary .renewBtn{margin-top:8px;}
+.renewText{font-size:13.5px; line-height:1.5; margin:0 0 12px;}
+.renewExpiry{font-size:13px; color:var(--muted); margin:-6px 0 12px;}
+.renewGo{width:100%; background:var(--amber); color:#1a1305;}
+.renewNote{font-size:11.5px; color:var(--muted); line-height:1.5; margin-top:12px;}
+.renewLink{display:block; text-align:center; margin-top:12px; font-size:12.5px; color:var(--muted); text-decoration:underline; cursor:pointer;}
+.demoTag{position:fixed; top:calc(8px + env(safe-area-inset-top,0px)); right:8px; background:var(--amber); color:#1a1305; font-size:10.5px; font-weight:700; padding:3px 8px; border-radius:100px; z-index:20;}
 </style>
 </head>
 <body>
@@ -121,6 +130,13 @@ button{border:none; border-radius:10px; padding:12px; font-weight:700; font-size
       <button class="cancel" id="cancelBtn" type="button">Отказ</button>
       <button class="save" id="saveBtn" type="button">Запази</button>
     </div>
+  </div>
+</div>
+
+<div class="overlay" id="renewOverlay">
+  <div class="sheet">
+    <h3 id="renewTitle">Поднови</h3>
+    <div id="renewBody"></div>
   </div>
 </div>
 
@@ -147,6 +163,25 @@ const defs = [
   {id:'casco', title:'Каско', mode:'date', fields:['date','expiry'], premium:true,
    labels:{date:'Дата на плащане',expiry:'Изтича на'}}
 ];
+
+// ==== Бутон „Поднови“ към партньор-брокер ====
+// Докато няма подписан договор, RENEW_PARTNER е null и бутонът казва „скоро“.
+// След договора: {name:'Име на брокера', civil:'https://...?ref=PARKBOOK', vignette:'https://...?ref=PARKBOOK'}
+const RENEW_PARTNER = null;
+const RENEW_LABELS = {civil:'Поднови ГО', vignette:'Купи винетка'};
+const RENEW_TITLES = {civil:'Поднови гражданската', vignette:'Купи винетка'};
+// Демо за срещи с брокери: отвори приложението с ?demo — показва как изглежда с партньор.
+// Остава включено до затваряне на раздела.
+let DEMO_MODE = false;
+try{
+  if(new URLSearchParams(location.search).has('demo')) sessionStorage.setItem('car-tracker-demo', '1');
+  DEMO_MODE = sessionStorage.getItem('car-tracker-demo') === '1';
+}catch(e){}
+function renewPartner(){
+  if(RENEW_PARTNER) return RENEW_PARTNER;
+  if(DEMO_MODE) return {name:'Вашият брокер', demo:true};
+  return null;
+}
 
 // ==== Премиум статус с реален срок на годност ====
 // PREMIUM_UNTIL_KEY пази или 'paid' (платен абонамент — безсрочен, докато не се отмени),
@@ -401,7 +436,8 @@ function buildSummary(defsList, data, km){
     const urgent = [...over, ...soon];
     const icon = over.length ? '🚨' : '⏳';
     const rest = urgent.slice(1).map(phrase).join(' · ');
-    return {cls: over.length ? 'over' : 'soon', main:`${icon} ${phrase(urgent[0])}`, sub: rest ? `Също: ${rest}` : 'Натисни реда отдолу, за да го обновиш.'};
+    return {cls: over.length ? 'over' : 'soon', main:`${icon} ${phrase(urgent[0])}`, sub: rest ? `Също: ${rest}` : 'Натисни реда отдолу, за да го обновиш.',
+      renewId: RENEW_LABELS[urgent[0].def.id] ? urgent[0].def.id : null};
   }
   const next = tracked[0];
   const when = `${SHORT_NAMES[next.def.id]} на ${fmtDate(next.s.expiry)} (след ${next.s.days} дни)`;
@@ -495,9 +531,13 @@ function renderMain(){
 
   const itemsHtml = unlocked.map(def=>{
     const s = statusFor(def, data, car.km);
+    const hot = !s.missing && (s.cls==='over' || s.cls==='soon');
+    const renew = RENEW_LABELS[def.id]
+      ? `<button class="renewBtn ${hot ? 'hot' : ''}" type="button" data-renew="${def.id}">${RENEW_LABELS[def.id]} →</button>` : '';
     return `<div class="item" data-id="${def.id}">
       <div class="item-top"><div class="item-title">${def.title}</div><div class="status ${s.cls}">${s.label}</div></div>
       <div class="item-detail">${detailFor(def, data)}</div>
+      ${renew}
     </div>`;
   }).join('');
 
@@ -527,7 +567,7 @@ function renderMain(){
   box.innerHTML = `
     <div class="carcard"><h2>${car.name}</h2><div class="sub">Текущ пробег: ${(car.km||0).toLocaleString('bg-BG')} км</div></div>
     ${premiumBanner}
-    <div class="summary ${summary.cls}"><div class="sdot"></div><div><div class="smain">${summary.main}</div><div class="ssub">${summary.sub}</div></div></div>
+    <div class="summary ${summary.cls}"><div class="sdot"></div><div><div class="smain">${summary.main}</div><div class="ssub">${summary.sub}</div>${summary.renewId ? `<button class="renewBtn hot" type="button" data-renew="${summary.renewId}">${RENEW_LABELS[summary.renewId]} →</button>` : ''}</div></div>
     <div id="items">${itemsHtml}</div>
     <div id="lockedItems">${lockedHtml}</div>
     ${unlockBlock}
@@ -535,6 +575,9 @@ function renderMain(){
 
   box.querySelectorAll('.item').forEach(el=>{
     el.addEventListener('click', ()=>openSheet(el.dataset.id, car.id));
+  });
+  box.querySelectorAll('[data-renew]').forEach(btn=>{
+    btn.addEventListener('click', e=>{ e.stopPropagation(); openRenew(btn.dataset.renew, car.id); });
   });
   const trialBtn = document.getElementById('trialBtn');
   if(trialBtn) trialBtn.addEventListener('click', ()=>{
@@ -670,6 +713,66 @@ document.getElementById('saveBtn').addEventListener('click', ()=>{
   }
   document.getElementById('overlay').style.display='none';
 });
+
+// Анонимно броене на натисканията — нашето число за сравнение с отчета на брокера.
+// В демо режим не броим, за да не се смесват срещите с истинските потребители.
+function logRenewClick(product, event, partner){
+  if(!SUPABASE_CONFIGURED || DEMO_MODE) return;
+  fetch(`${SUPABASE_URL}/rest/v1/rpc/log_renew_click`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json', 'apikey':SUPABASE_ANON_KEY, 'Authorization':`Bearer ${SUPABASE_ANON_KEY}`},
+    body: JSON.stringify({ p_product: product, p_event: event, p_partner: partner ? partner.name : 'none', p_device: getDeviceId() }),
+    keepalive: true
+  }).catch(()=>{});
+}
+
+function openRenew(id, carId){
+  const def = defs.find(d=>d.id===id);
+  const s = statusFor(def, getData(carId));
+  const partner = renewPartner();
+  logRenewClick(id, 'open', partner);
+  const what = id==='civil' ? 'гражданската' : 'винетката';
+  const expiry = s.expiry ? `<div class="renewExpiry">Сегашната изтича на ${fmtDate(s.expiry)}</div>` : '';
+  let body;
+  if(partner){
+    const product = id==='civil' ? 'гражданска отговорност' : 'винетка';
+    body = `${expiry}
+      <p class="renewText">Купи ${product} онлайн от <b>${escapeHtml(partner.name)}</b> — лицензиран застрахователен брокер, наш партньор. Цената е същата като директно при тях.</p>
+      <button class="renewGo" type="button" id="renewGoBtn">Продължи към ${escapeHtml(partner.name)} →</button>
+      <div class="renewNote" id="renewNote">Партньорска връзка. PARKBOOK не продава застраховки — само те препраща и може да получи комисиона от партньора.</div>
+      <a class="renewLink" id="renewDoneLink">Вече го направих — въведи новата дата</a>
+      <a class="renewLink" id="renewCloseLink">Затвори</a>`;
+  } else {
+    body = `${expiry}
+      <p class="renewText">Скоро ще можеш да подновяваш ${what} направо оттук — с проверен партньор, на същата цена.</p>
+      <button class="renewGo" type="button" id="renewCloseBtn">Добре</button>
+      <a class="renewLink" id="renewDoneLink">Вече я поднових — въведи новата дата</a>`;
+  }
+  document.getElementById('renewTitle').textContent = RENEW_TITLES[id];
+  document.getElementById('renewBody').innerHTML = body;
+  const ov = document.getElementById('renewOverlay');
+  const close = ()=>{ ov.style.display = 'none'; };
+  ov.style.display = 'flex';
+  const goBtn = document.getElementById('renewGoBtn');
+  if(goBtn) goBtn.addEventListener('click', ()=>{
+    if(partner.demo){
+      document.getElementById('renewNote').innerHTML = '<b style="color:var(--amber);">Демо:</b> тук клиентът отива на вашия сайт с код PARKBOOK в линка, за да се отчете продажбата.';
+      return;
+    }
+    logRenewClick(id, 'go', partner);
+    window.open(partner[id], '_blank', 'noopener');
+  });
+  const closeBtn = document.getElementById('renewCloseBtn');
+  if(closeBtn) closeBtn.addEventListener('click', close);
+  const closeLink = document.getElementById('renewCloseLink');
+  if(closeLink) closeLink.addEventListener('click', close);
+  document.getElementById('renewDoneLink').addEventListener('click', ()=>{ close(); openSheet(id, carId); });
+}
+document.getElementById('renewOverlay').addEventListener('click', e=>{ if(e.target.id==='renewOverlay') e.target.style.display='none'; });
+function escapeHtml(s){
+  return String(s ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+if(DEMO_MODE) document.body.insertAdjacentHTML('beforeend', '<div class="demoTag">ДЕМО</div>');
 
 renderAll();
 
