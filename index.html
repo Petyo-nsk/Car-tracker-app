@@ -166,10 +166,29 @@ const defs = [
    labels:{date:'Дата на плащане',expiry:'Изтича на'}}
 ];
 
-// ==== Бутон „Поднови“ към партньор-брокер ====
-// Докато няма подписан договор, RENEW_PARTNER е null и бутонът казва „скоро“.
-// След договора: {name:'Име на брокера', civil:'https://...?ref=PARKBOOK', vignette:'https://...?ref=PARKBOOK'}
-const RENEW_PARTNER = null;
+// ==== Бутон „Поднови“ към партньор ====
+// ГО се купува от застрахователен брокер, винетката — от оторизиран продавач на е-винетки,
+// затова всеки продукт има свой партньор. Докато няма подписан договор, партньорът е null
+// и бутонът казва „скоро“. След договора: {name:'Име на партньора', url:'https://...?ref=PARKBOOK'}
+const RENEW_PARTNERS = {civil: null, vignette: null};
+const RENEW_TEXTS = {
+  civil: {
+    about: name => `Купи гражданска отговорност онлайн от <b>${name}</b> — лицензиран застрахователен брокер, наш партньор. Цената е същата като директно при тях.`,
+    variantA: 'на сайта на брокера', go: 'Поднови при брокера', seller: 'брокера',
+    note: 'PARKBOOK не продава застраховки — само те препраща и може да получи комисиона от партньора.',
+    done: 'Вече я поднових — въведи новата дата',
+    soon: 'Скоро ще можеш да подновяваш гражданската направо оттук — с проверен брокер, на същата цена.',
+    demoName: 'Вашият брокер'
+  },
+  vignette: {
+    about: name => `Купи електронна винетка онлайн от <b>${name}</b> — оторизиран продавач на е-винетки, наш партньор. Получаваш официалната винетка, валидна веднага.`,
+    variantA: 'на сайта на партньора', go: 'Купи от партньора', seller: 'продавача на винетки',
+    note: 'PARKBOOK не продава винетки — само те препраща и може да получи комисиона от партньора.',
+    done: 'Вече я купих — въведи новата дата',
+    soon: 'Скоро ще можеш да купуваш винетка направо оттук — от проверен партньор.',
+    demoName: 'Вашата компания'
+  }
+};
 const RENEW_LABELS = {civil:'Поднови ГО', vignette:'Купи винетка'};
 const RENEW_TITLES = {civil:'Поднови гражданската', vignette:'Купи винетка'};
 // Демо за срещи с брокери: отвори приложението с ?demo — показва как изглежда с партньор.
@@ -179,9 +198,9 @@ try{
   if(new URLSearchParams(location.search).has('demo')) sessionStorage.setItem('car-tracker-demo', '1');
   DEMO_MODE = sessionStorage.getItem('car-tracker-demo') === '1';
 }catch(e){}
-function renewPartner(){
-  if(RENEW_PARTNER) return RENEW_PARTNER;
-  if(DEMO_MODE) return {name:'Вашият брокер', demo:true};
+function renewPartner(id){
+  if(RENEW_PARTNERS[id]) return RENEW_PARTNERS[id];
+  if(DEMO_MODE) return {name: RENEW_TEXTS[id].demoName, demo:true};
   return null;
 }
 
@@ -731,27 +750,26 @@ function logRenewClick(product, event, partner){
 function openRenew(id, carId){
   const def = defs.find(d=>d.id===id);
   const s = statusFor(def, getData(carId));
-  const partner = renewPartner();
+  const partner = renewPartner(id);
+  const t = RENEW_TEXTS[id];
   logRenewClick(id, 'open', partner);
-  const what = id==='civil' ? 'гражданската' : 'винетката';
   const expiry = s.expiry ? `<div class="renewExpiry">Сегашната изтича на ${fmtDate(s.expiry)}</div>` : '';
   let body;
   if(partner){
-    const product = id==='civil' ? 'гражданска отговорност' : 'винетка';
     body = `${expiry}
-      <p class="renewText">Купи ${product} онлайн от <b>${escapeHtml(partner.name)}</b> — лицензиран застрахователен брокер, наш партньор. Цената е същата като директно при тях.</p>
-      ${partner.demo ? '<div class="demoVariant">Вариант А — на сайта на брокера</div>' : ''}
-      <button class="renewGo" type="button" id="renewGoBtn">${partner.demo ? 'Поднови при брокера' : 'Продължи към ' + escapeHtml(partner.name)} →</button>
+      <p class="renewText">${t.about(escapeHtml(partner.name))}</p>
+      ${partner.demo ? `<div class="demoVariant">Вариант А — ${t.variantA}</div>` : ''}
+      <button class="renewGo" type="button" id="renewGoBtn">${partner.demo ? t.go : 'Продължи към ' + escapeHtml(partner.name)} →</button>
       ${partner.demo ? `<div class="demoVariant">Вариант Б — без да излизаш от приложението</div>
       <button class="renewGo alt" type="button" id="renewBuyBtn">Купи тук в приложението</button>` : ''}
-      <div class="renewNote" id="renewNote">Партньорска връзка. PARKBOOK не продава застраховки — само те препраща и може да получи комисиона от партньора.</div>
-      <a class="renewLink" id="renewDoneLink">Вече го направих — въведи новата дата</a>
+      <div class="renewNote" id="renewNote">Партньорска връзка. ${t.note}</div>
+      <a class="renewLink" id="renewDoneLink">${t.done}</a>
       <a class="renewLink" id="renewCloseLink">Затвори</a>`;
   } else {
     body = `${expiry}
-      <p class="renewText">Скоро ще можеш да подновяваш ${what} направо оттук — с проверен партньор, на същата цена.</p>
+      <p class="renewText">${t.soon}</p>
       <button class="renewGo" type="button" id="renewCloseBtn">Добре</button>
-      <a class="renewLink" id="renewDoneLink">Вече я поднових — въведи новата дата</a>`;
+      <a class="renewLink" id="renewDoneLink">${t.done}</a>`;
   }
   document.getElementById('renewTitle').textContent = RENEW_TITLES[id];
   document.getElementById('renewBody').innerHTML = body;
@@ -765,7 +783,7 @@ function openRenew(id, carId){
       return;
     }
     logRenewClick(id, 'go', partner);
-    window.open(partner[id], '_blank', 'noopener');
+    window.open(partner.url, '_blank', 'noopener');
   });
   const buyBtn = document.getElementById('renewBuyBtn');
   if(buyBtn) buyBtn.addEventListener('click', ()=>openDemoBuy(id, carId));
@@ -785,7 +803,7 @@ const eur = n => n.toFixed(2).replace('.', ',') + ' €';
 
 function openDemoBuy(id, carId){
   const body = document.getElementById('renewBody');
-  const note = '<div class="renewNote">Демо — примерни цени, нищо не се плаща. Продажбата се извършва от брокера; PARKBOOK само показва калкулатора му.</div>';
+  const note = `<div class="renewNote">Демо — примерни цени, нищо не се плаща. Продажбата се извършва от ${RENEW_TEXTS[id].seller}; PARKBOOK само показва калкулатора му.</div>`;
   const pay = (what, price, onPaid)=>{
     body.innerHTML = `<p class="renewText">${what}</p>
       <div class="calcExpiry" style="margin-bottom:14px; text-align:center; font-size:18px;">${eur(price)}</div>
