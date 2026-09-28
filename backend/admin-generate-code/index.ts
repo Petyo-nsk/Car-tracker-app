@@ -1,16 +1,28 @@
 // Supabase Edge Function: admin-generate-code
-// Единствената функция, която МОЖЕ да създава нови промо кодове.
+// Единствената функция, която МОЖЕ да създава нови промо кодове и да показва статистиката.
 // ПИН-ът се проверява тук, на сървъра — не в браузъра — така че никой,
 // колкото и да гледа кода на страницата, не може да го заобиколи.
+//
+// Заявки (POST JSON):
+//   { pin, name, months }                              → нов еднократен код
+//   { pin, name, months, reusable: true, code? }       → партньорски код (многократен, със статистика)
+//   { pin, action: 'stats' }                           → партньорските кодове + брой клиенти
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 // CORS — задължително за Edge Functions, иначе браузърът блокира отговора
-// когато страницата (Artifact) е на друг домейн от Supabase.
+// когато страницата е на друг домейн от Supabase.
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'content-type': 'application/json' },
+  })
 }
 
 Deno.serve(async (req) => {
@@ -20,32 +32,18 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { pin, name, months } = await req.json()
+    const { pin, name, months, reusable, code: customCode, action } = await req.json()
 
     const ADMIN_PIN = (Deno.env.get('ADMIN_PIN') || '').trim() // задава се като "secret" в Supabase, никога в кода
     const pinTrimmed = (pin || '').toString().trim()
 
     if (!ADMIN_PIN) {
       // секретът изобщо не е зададен на сървъра — различна грешка, за да се разбере веднага
-      return new Response(JSON.stringify({ error: 'server_pin_not_configured' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'content-type': 'application/json' },
-      })
+      return json({ error: 'server_pin_not_configured' }, 500)
     }
 
     if (!pinTrimmed || pinTrimmed !== ADMIN_PIN) {
-      return new Response(JSON.stringify({ error: 'invalid_pin' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'content-type': 'application/json' },
-      })
-    }
-
-    const monthsNum = parseInt(months, 10)
-    if (!monthsNum || monthsNum < 1 || monthsNum > 24) {
-      return new Response(JSON.stringify({ error: 'invalid_months' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'content-type': 'application/json' },
-      })
+      return json({ error: 'invalid_pin' }, 401)
     }
 
     const supabase = createClient(
@@ -53,31 +51,62 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')! // "service role" ключ — само тук, никога в клиентски код
     )
 
+    if (action === 'stats') {
+      const { data: codes, error: codesErr } = await supabase
+        .from('promo_codes')
+        .select('code, months, generated_by, created_at')
+        .eq('reusable', true)
+      if (codesErr) return json({ error: codesErr.message }, 500)
+
+      // Броим поотделно за всеки код (count), за да не ни ограничава лимитът от 1000 реда.
+      const stats = await Promise.all((codes || []).map(async (c) => {
+        const { count } = await supabase
+          .from('promo_redemptions')
+          .select('id', { count: 'exact', head: true })
+          .eq('code', c.code)
+        const { data: lastRow } = await supabase
+          .from('promo_redemptions')
+          .select('redeemed_at')
+          .eq('code', c.code)
+          .order('redeemed_at', { ascending: false })
+          .limit(1)
+        return { ...c, clients: count || 0, last_used: lastRow?.[0]?.redeemed_at || null }
+      }))
+      stats.sort((a, b) => b.clients - a.clients)
+
+      return json({ stats })
+    }
+
+    const monthsNum = parseInt(months, 10)
+    if (!monthsNum || monthsNum < 1 || monthsNum > 24) {
+      return json({ error: 'invalid_months' }, 400)
+    }
+
     const base = (name || 'PARTNER').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) || 'PARTNER'
-    const rand = Math.random().toString(36).slice(2, 6).toUpperCase()
-    const code = `${base}-${rand}`
+    let code: string
+    if (reusable && customCode) {
+      // Партньорът получава лесен за запомняне код, напр. INSURANCEBG
+      code = customCode.toString().toUpperCase().replace(/[^A-Z0-9-]/g, '')
+      if (code.length < 4 || code.length > 20) return json({ error: 'invalid_code' }, 400)
+    } else {
+      const rand = Math.random().toString(36).slice(2, 6).toUpperCase()
+      code = `${base}-${rand}`
+    }
 
     const { error } = await supabase.from('promo_codes').insert({
       code,
       months: monthsNum,
       generated_by: name || 'Партньор',
+      reusable: !!reusable,
     })
 
     if (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 500,
-        headers: { ...corsHeaders, 'content-type': 'application/json' },
-      })
+      // 23505 = такъв код вече съществува
+      return json({ error: error.code === '23505' ? 'code_exists' : error.message }, error.code === '23505' ? 409 : 500)
     }
 
-    return new Response(JSON.stringify({ code, months: monthsNum }), {
-      status: 200,
-      headers: { ...corsHeaders, 'content-type': 'application/json' },
-    })
+    return json({ code, months: monthsNum, reusable: !!reusable })
   } catch (e) {
-    return new Response(JSON.stringify({ error: 'bad_request' }), {
-      status: 400,
-      headers: { ...corsHeaders, 'content-type': 'application/json' },
-    })
+    return json({ error: 'bad_request' }, 400)
   }
 })

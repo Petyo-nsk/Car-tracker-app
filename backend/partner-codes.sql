@@ -1,29 +1,10 @@
--- Схема на базата данни (Supabase / Postgres) за промо кодовете.
--- ВНИМАНИЕ: пускането изтрива таблицата и всички генерирани кодове, после я създава наново.
--- След като я пуснеш, пусни и backend/private/owner-code.sql (личният код — не е в GitHub).
-
-drop table if exists promo_redemptions cascade;
-drop table if exists promo_codes cascade;
-drop function if exists redeem_promo_code(text);
-drop function if exists redeem_promo_code(text, text);
-
-create table promo_codes (
-  code text primary key,
-  months int not null,
-  generated_by text,
-  reusable boolean not null default false, -- true за личния код и партньорските кодове (напр. INSURANCEBG) — никога не се маркира като използван
-  used boolean not null default false,
-  used_at timestamptz,
-  created_at timestamptz not null default now()
-);
-
--- RLS включен, без публични политики: достъпът е само през функцията по-долу
--- (за приложението) и през Edge Function admin-generate-code (за генератора).
-alter table promo_codes enable row level security;
+-- Партньорски кодове със статистика (напр. INSURANCEBG за брокер).
+-- БЕЗОПАСНО за пускане върху съществуващата база — НЕ трие кодове.
+-- Пуска се веднъж в Supabase → SQL Editor. (schema.sql вече съдържа същото за нова база.)
 
 -- Всяко приложено въвеждане на код от едно устройство = един ред.
 -- Едно устройство се брои само веднъж за даден код, за да е честна статистиката.
-create table promo_redemptions (
+create table if not exists promo_redemptions (
   id bigserial primary key,
   code text not null references promo_codes(code) on delete cascade,
   device_id text not null,
@@ -31,7 +12,11 @@ create table promo_redemptions (
   unique (code, device_id)
 );
 
+-- RLS включен, без публични политики: пише се само през функцията, чете се само от Edge Function.
 alter table promo_redemptions enable row level security;
+
+-- Старата функция беше само с един параметър — махаме я, за да няма две версии.
+drop function if exists redeem_promo_code(text);
 
 create or replace function redeem_promo_code(p_code text, p_device text default null)
 returns json

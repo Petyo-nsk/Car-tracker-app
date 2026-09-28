@@ -56,10 +56,19 @@ button:disabled{opacity:0.6; cursor:default;}
   <div id="configWarning"></div>
 
   <div class="card">
-    <label>ПИН</label>
-    <input id="pinInput" type="password" placeholder="Твоят ПИН">
+    <label>Парола</label>
+    <input id="pinInput" type="password" placeholder="Твоята парола">
+    <label>Вид код</label>
+    <select id="codeType">
+      <option value="single">Еднократен — за един човек</option>
+      <option value="partner">Партньорски — за много клиенти, със статистика</option>
+    </select>
     <label>Име на партньора (записва се като бележка към кода)</label>
     <input id="partnerName" placeholder="Напр. TikTok — Иван, ДЗИ Брокер">
+    <div id="customCodeWrap" style="display:none;">
+      <label>Код за клиентите (букви и цифри, напр. INSURANCEBG)</label>
+      <input id="customCode" placeholder="INSURANCEBG" style="text-transform:uppercase;">
+    </div>
     <label>Безплатен период</label>
     <select id="months">
       <option value="1">1 месец</option>
@@ -71,6 +80,14 @@ button:disabled{opacity:0.6; cursor:default;}
     <button class="primary" id="genBtn">Генерирай код</button>
     <div class="errMsg" id="statusMsg"></div>
     <div id="resultBox"></div>
+  </div>
+
+  <div class="card">
+    <div style="font-weight:600; font-size:14px; margin-bottom:4px;">Статистика на партньорските кодове</div>
+    <div class="note" style="margin-top:0;">Колко клиенти е довел всеки партньор. Всяко устройство се брои веднъж. Нужна е паролата отгоре.</div>
+    <button class="copyBtn" id="statsBtn">Покажи статистиката</button>
+    <div class="errMsg" id="statsMsg"></div>
+    <div class="log" id="statsBox"></div>
   </div>
 
   <div class="card">
@@ -105,14 +122,78 @@ function renderLog(){
 }
 renderLog();
 
+function escapeHtml(s){
+  return String(s ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function fmtDate(iso){
+  if(!iso) return '—';
+  const [y,m,d] = iso.slice(0,10).split('-');
+  return `${d}.${m}.${y}`;
+}
+
+async function callAdmin(body){
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/${FUNCTION_NAME}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+    },
+    body: JSON.stringify(body)
+  });
+  const data = await res.json().catch(()=>({}));
+  return {res, data};
+}
+
+// Партньорският код обикновено е за 12 месеца и има собствено име
+document.getElementById('codeType').addEventListener('change', e=>{
+  const partner = e.target.value === 'partner';
+  document.getElementById('customCodeWrap').style.display = partner ? '' : 'none';
+  document.getElementById('months').value = partner ? '12' : '3';
+});
+
+document.getElementById('statsBtn').addEventListener('click', async ()=>{
+  const pin = document.getElementById('pinInput').value;
+  const msg = document.getElementById('statsMsg');
+  const box = document.getElementById('statsBox');
+  const btn = document.getElementById('statsBtn');
+  if(!pin){ msg.textContent = 'Въведи паролата отгоре.'; return; }
+  btn.disabled = true;
+  msg.textContent = 'Зареждане…';
+  box.innerHTML = '';
+  try{
+    const {res, data} = await callAdmin({ pin, action: 'stats' });
+    if(data.error === 'invalid_pin') msg.textContent = 'Грешна парола.';
+    else if(data.error) msg.textContent = 'Грешка: ' + data.error;
+    else if(!res.ok) msg.textContent = 'Грешка при връзка (код ' + res.status + ') — опитай пак.';
+    else {
+      msg.textContent = '';
+      const total = data.stats.reduce((s,r)=>s + r.clients, 0);
+      box.innerHTML = data.stats.length
+        ? data.stats.map(r=>`
+          <div class="logRow"><span><span class="code">${escapeHtml(r.code)}</span><br><span class="meta">${escapeHtml(r.generated_by)} · ${r.months} мес. · последно ${fmtDate(r.last_used)}</span></span><span class="code" style="font-size:16px;">${r.clients}</span></div>
+        `).join('') + `<div class="note">Общо клиенти от партньорски кодове: <b>${total}</b></div>`
+        : '<div style="color:var(--muted);font-size:12.5px;">Още няма партньорски кодове.</div>';
+    }
+  }catch(e){
+    msg.textContent = 'Грешка при връзка — опитай пак.';
+  }
+  btn.disabled = false;
+});
+
 document.getElementById('genBtn').addEventListener('click', async ()=>{
   const pin = document.getElementById('pinInput').value;
   const name = document.getElementById('partnerName').value.trim() || 'Партньор';
   const months = document.getElementById('months').value;
+  const reusable = document.getElementById('codeType').value === 'partner';
+  const code = document.getElementById('customCode').value.trim().toUpperCase();
   const btn = document.getElementById('genBtn');
   const msg = document.getElementById('statusMsg');
 
-  if(!pin){ msg.textContent = 'Въведи ПИН.'; return; }
+  if(!pin){ msg.textContent = 'Въведи паролата.'; return; }
+  if(reusable && code && !/^[A-Z0-9-]{4,20}$/.test(code)){
+    msg.textContent = 'Кодът трябва да е 4–20 латински букви, цифри или тире.'; return;
+  }
 
   btn.disabled = true;
   msg.className = 'errMsg';
@@ -120,26 +201,19 @@ document.getElementById('genBtn').addEventListener('click', async ()=>{
   document.getElementById('resultBox').innerHTML = '';
 
   try{
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/${FUNCTION_NAME}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-      },
-      body: JSON.stringify({ pin, name, months })
-    });
-    const data = await res.json().catch(()=>({}));
+    const {res, data} = await callAdmin({ pin, name, months, reusable, code: reusable ? code : undefined });
 
     if(data.error === 'invalid_pin'){
-      msg.textContent = 'Грешен ПИН.';
+      msg.textContent = 'Грешна парола.';
+    } else if(data.error === 'code_exists'){
+      msg.textContent = 'Такъв код вече има — избери друго име.';
     } else if(data.error){
       msg.textContent = 'Грешка: ' + data.error;
     } else if(!res.ok){
       msg.textContent = 'Грешка при връзка (код ' + res.status + ') — опитай пак.';
     } else {
       msg.textContent = '';
-      log.push({code: data.code, name, months: data.months});
+      log.push({code: data.code, name: data.reusable ? name + ' · партньорски' : name, months: data.months});
       saveLog();
       renderLog();
       document.getElementById('resultBox').innerHTML = `

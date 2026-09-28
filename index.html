@@ -202,6 +202,19 @@ const SUPABASE_URL = 'https://zqpomakbhmqhdeuefdfj.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_TMj8xYglcKFXlCdEx-r0kg_wCxeJ45x';
 const SUPABASE_CONFIGURED = SUPABASE_URL.startsWith('https://') && SUPABASE_ANON_KEY.length > 10;
 
+// Анонимен номер на устройството (случаен, без лични данни) — за да се брои всеки клиент
+// само веднъж в статистиката на партньорските кодове, дори да въведе кода няколко пъти.
+const DEVICE_ID_KEY = 'car-tracker-device-id-v1';
+function getDeviceId(){
+  let id = null;
+  try{ id = localStorage.getItem(DEVICE_ID_KEY); }catch(e){}
+  if(!id){
+    id = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+    try{ localStorage.setItem(DEVICE_ID_KEY, id); }catch(e){}
+  }
+  return id;
+}
+
 async function redeemCodeRemote(code){
   const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/redeem_promo_code`, {
     method: 'POST',
@@ -210,7 +223,7 @@ async function redeemCodeRemote(code){
       'apikey': SUPABASE_ANON_KEY,
       'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
     },
-    body: JSON.stringify({ p_code: code })
+    body: JSON.stringify({ p_code: code, p_device: getDeviceId() })
   });
   if(!res.ok) throw new Error('network');
   return res.json(); // {valid: true, months: N} или {valid: false}

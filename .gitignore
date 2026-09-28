@@ -2,6 +2,8 @@
 CLAUDE.local.md
 backend/private/
 business/
+.mcp.json
+.claude/settings.local.json
 
 # Системни файлове
 .DS_Store
