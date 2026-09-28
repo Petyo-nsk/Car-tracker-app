@@ -49,6 +49,24 @@ h1,.brand{font-family:'Space Grotesk',sans-serif;}
 .summary.over .sdot{background:var(--red); animation:pulse 1s ease-in-out infinite;}
 @keyframes pulse{0%,100%{transform:scale(1); opacity:1;} 50%{transform:scale(1.5); opacity:.55;}}
 @media (prefers-reduced-motion: reduce){ .summary .sdot{animation:none !important;} }
+/* Колата-талисман — настроението следва лентата със статуса */
+.summary.withMascot{align-items:center; gap:12px;}
+.mascot{width:72px; height:60px; flex-shrink:0;}
+.mascot svg{width:100%; height:100%; overflow:visible;}
+.mascot.happy svg{animation:mBounce 2.6s ease-in-out infinite;}
+.mascot.worried svg{animation:mShake 3s ease-in-out infinite;}
+.mascot.sad svg{transform:translateY(2px);}
+.mascot.sleepy svg{animation:mBreathe 4s ease-in-out infinite;}
+.mascot .lid{transform-box:fill-box; transform-origin:center top; transform:scaleY(0); animation:mBlink 4.5s infinite;}
+.mascot .drop{animation:mDrop 2.4s ease-in infinite;}
+.mascot .zz{animation:mZz 3s ease-in-out infinite;}
+@keyframes mBounce{0%,100%{transform:translateY(0);} 50%{transform:translateY(-3px);}}
+@keyframes mShake{0%,86%,100%{transform:rotate(0);} 89%{transform:rotate(-3deg);} 93%{transform:rotate(3deg);} 96%{transform:rotate(-2deg);}}
+@keyframes mBreathe{0%,100%{transform:scale(1);} 50%{transform:scale(1.025);}}
+@keyframes mBlink{0%,92%,100%{transform:scaleY(0);} 95%{transform:scaleY(1);}}
+@keyframes mDrop{0%{opacity:0; transform:translateY(-2px);} 25%{opacity:1;} 100%{opacity:0; transform:translateY(8px);}}
+@keyframes mZz{0%,100%{opacity:.3; transform:translate(0,0);} 50%{opacity:1; transform:translate(2px,-3px);}}
+@media (prefers-reduced-motion: reduce){ .mascot svg, .mascot .lid, .mascot .drop, .mascot .zz{animation:none !important;} }
 .item{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:10px; cursor:pointer;}
 .locked{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:10px; opacity:0.45; position:relative;}
 .locked .item-title{font-weight:600; font-size:14.5px;}
@@ -435,6 +453,44 @@ function phrase(e){ return `${SHORT_NAMES[e.def.id] || e.def.title} ${whenText(e
 // приложението не знае реалния пробег, затова не ги броим като „наближава“.
 const SUMMARY_IDS = ['civil', 'vignette', 'inspection', 'casco'];
 
+// ==== Колата-талисман: същата кола като иконата, фаровете са очи, а усмивката — уста ====
+// Настроението идва от цвета на лентата: ok → весела, soon → притеснена, over → тъжна, none → сънлива.
+const MASCOT_MOODS = {ok:'happy', soon:'worried', over:'sad', none:'sleepy'};
+const MASCOT_EYES = {happy:'#5cc27f', worried:'#e0a83d', sad:'#d9634f', sleepy:'#8b93a1'};
+function mascotHtml(summaryCls){
+  const mood = MASCOT_MOODS[summaryCls] || 'happy';
+  const eye = MASCOT_EYES[mood];
+  const eyes = [32, 68].map(x=>{
+    if(mood==='sleepy') return `<path d="M${x-5} 54 Q${x} 57.5 ${x+5} 54" fill="none" stroke="${eye}" stroke-width="2.6" stroke-linecap="round"/>`;
+    const glow = `<circle cx="${x}" cy="54" r="7.5" fill="${eye}" opacity=".25"/>`;
+    const lid = mood==='happy' ? `<rect class="lid" x="${x-6}" y="48.5" width="12" height="11" rx="5" fill="#14171c"/>` : '';
+    return `${glow}<circle cx="${x}" cy="54" r="5.2" fill="${eye}"/><circle cx="${x-1.6}" cy="52.4" r="1.5" fill="#fff" opacity=".75"/>${lid}`;
+  }).join('');
+  // Веждите: вътрешните краища нагоре = притеснение/тъга
+  const brows = (mood==='worried' || mood==='sad') ? `<path d="M27.5 49 L36 47 M72.5 49 L64 47" stroke="${eye}" stroke-width="1.8" stroke-linecap="round"/>` : '';
+  const mouth = {
+    happy:   '<path d="M42 56.5 Q50 63.5 58 56.5" fill="none" stroke="#e8a33d" stroke-width="4.2" stroke-linecap="round"/>',
+    worried: '<path d="M42 60 Q46 57 50 60 T58 60" fill="none" stroke="#e8a33d" stroke-width="3.4" stroke-linecap="round"/>',
+    sad:     '<path d="M42 62 Q50 55.5 58 62" fill="none" stroke="#e8a33d" stroke-width="4" stroke-linecap="round"/>',
+    sleepy:  '<ellipse cx="50" cy="59.5" rx="3" ry="2.4" fill="#e8a33d"/>'
+  }[mood];
+  const extra = {
+    worried: '<path class="drop" d="M79 34 Q82 39 79 41 Q76 39 79 34 Z" fill="#7cc4f5"/>',
+    sad:     '<path class="drop" d="M68 61 Q71 66 68 68 Q65 66 68 61 Z" fill="#7cc4f5"/>',
+    sleepy:  '<text class="zz" x="72" y="30" font-size="10" font-weight="700" fill="#8b93a1" font-family="Space Grotesk,sans-serif">z</text><text class="zz" x="79" y="23" font-size="7" font-weight="700" fill="#8b93a1" font-family="Space Grotesk,sans-serif">z</text>',
+    happy:   ''
+  }[mood];
+  return `<div class="mascot ${mood}" aria-hidden="true"><svg viewBox="16 18 70 62">
+    <ellipse cx="50" cy="77" rx="28" ry="2.6" fill="#000" opacity=".3"/>
+    <path d="M31 46 L37 31 Q39 26 45 26 L55 26 Q61 26 63 31 L69 46 Z" fill="#e8a33d"/>
+    <path d="M37 44 L41.5 33 Q42.5 30.5 45.5 30.5 L54.5 30.5 Q57.5 30.5 58.5 33 L63 44 Z" fill="#3a4150"/>
+    <rect x="20" y="43" width="60" height="23" rx="9" fill="#e8a33d"/>
+    <rect x="24" y="63" width="11" height="13" rx="3.5" fill="#14171c"/><rect x="65" y="63" width="11" height="13" rx="3.5" fill="#14171c"/>
+    <rect x="23" y="46" width="54" height="17" rx="7" fill="#14171c"/>
+    ${brows}${eyes}${mouth}${extra}
+  </svg></div>`;
+}
+
 function buildSummary(defsList, data, km){
   const docs = defsList.filter(def=>SUMMARY_IDS.includes(def.id));
   if(!docs.length){
@@ -586,7 +642,7 @@ function renderMain(){
   box.innerHTML = `
     <div class="carcard"><h2>${car.name}</h2><div class="sub">Текущ пробег: ${(car.km||0).toLocaleString('bg-BG')} км</div></div>
     ${premiumBanner}
-    <div class="summary ${summary.cls}"><div class="sdot"></div><div><div class="smain">${summary.main}</div><div class="ssub">${summary.sub}</div>${summary.renewId ? `<button class="renewBtn hot" type="button" data-renew="${summary.renewId}">${RENEW_LABELS[summary.renewId]} →</button>` : ''}</div></div>
+    <div class="summary withMascot ${summary.cls}">${mascotHtml(summary.cls)}<div><div class="smain">${summary.main}</div><div class="ssub">${summary.sub}</div>${summary.renewId ? `<button class="renewBtn hot" type="button" data-renew="${summary.renewId}">${RENEW_LABELS[summary.renewId]} →</button>` : ''}</div></div>
     <div id="items">${itemsHtml}</div>
     <div id="lockedItems">${lockedHtml}</div>
     ${unlockBlock}
