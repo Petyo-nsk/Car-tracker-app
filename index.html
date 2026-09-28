@@ -108,8 +108,6 @@ button{border:none; border-radius:10px; padding:12px; font-weight:700; font-size
 .renewText{font-size:13.5px; line-height:1.5; margin:0 0 12px;}
 .renewExpiry{font-size:13px; color:var(--muted); margin:-6px 0 12px;}
 .renewGo{width:100%; background:var(--amber); color:#1a1305;}
-.renewGo.alt{background:var(--panel2); color:var(--ink); border:1px solid var(--amber);}
-.demoVariant{font-size:11.5px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:0.4px; margin:14px 0 6px;}
 .renewNote{font-size:11.5px; color:var(--muted); line-height:1.5; margin-top:12px;}
 .renewLink{display:block; text-align:center; margin-top:12px; font-size:12.5px; color:var(--muted); text-decoration:underline; cursor:pointer;}
 .demoTag{position:fixed; top:calc(8px + env(safe-area-inset-top,0px)); right:8px; background:var(--amber); color:#1a1305; font-size:10.5px; font-weight:700; padding:3px 8px; border-radius:100px; z-index:20;}
@@ -174,7 +172,7 @@ const RENEW_PARTNERS = {civil: null, vignette: null};
 const RENEW_TEXTS = {
   civil: {
     about: name => `Купи гражданска отговорност онлайн от <b>${name}</b> — лицензиран застрахователен брокер, наш партньор. Цената е същата като директно при тях.`,
-    variantA: 'на сайта на брокера', go: 'Поднови при брокера', seller: 'брокера',
+    go: 'Поднови при брокера',
     note: 'PARKBOOK не продава застраховки — само те препраща и може да получи комисиона от партньора.',
     done: 'Вече я поднових — въведи новата дата',
     soon: 'Скоро ще можеш да подновяваш гражданската направо оттук — с проверен брокер, на същата цена.',
@@ -182,7 +180,7 @@ const RENEW_TEXTS = {
   },
   vignette: {
     about: name => `Купи електронна винетка онлайн от <b>${name}</b> — оторизиран продавач на е-винетки, наш партньор. Получаваш официалната винетка, валидна веднага.`,
-    variantA: 'на сайта на партньора', go: 'Купи от партньора', seller: 'продавача на винетки',
+    go: 'Купи от партньора',
     note: 'PARKBOOK не продава винетки — само те препраща и може да получи комисиона от партньора.',
     done: 'Вече я купих — въведи новата дата',
     soon: 'Скоро ще можеш да купуваш винетка направо оттук — от проверен партньор.',
@@ -758,10 +756,7 @@ function openRenew(id, carId){
   if(partner){
     body = `${expiry}
       <p class="renewText">${t.about(escapeHtml(partner.name))}</p>
-      ${partner.demo ? `<div class="demoVariant">Вариант А — ${t.variantA}</div>` : ''}
       <button class="renewGo" type="button" id="renewGoBtn">${partner.demo ? t.go : 'Продължи към ' + escapeHtml(partner.name)} →</button>
-      ${partner.demo ? `<div class="demoVariant">Вариант Б — без да излизаш от приложението</div>
-      <button class="renewGo alt" type="button" id="renewBuyBtn">Купи тук в приложението</button>` : ''}
       <div class="renewNote" id="renewNote">Партньорска връзка. ${t.note}</div>
       <a class="renewLink" id="renewDoneLink">${t.done}</a>
       <a class="renewLink" id="renewCloseLink">Затвори</a>`;
@@ -779,81 +774,18 @@ function openRenew(id, carId){
   const goBtn = document.getElementById('renewGoBtn');
   if(goBtn) goBtn.addEventListener('click', ()=>{
     if(partner.demo){
-      document.getElementById('renewNote').innerHTML = '<b style="color:var(--amber);">Демо:</b> тук клиентът отива на вашия сайт с код PARKBOOK в линка, за да се отчете продажбата.';
+      if(!document.getElementById('renewDemoNote')) document.getElementById('renewNote').insertAdjacentHTML('afterend', '<div class="renewNote" id="renewDemoNote"><b style="color:var(--amber);">Демо:</b> тук клиентът отива на вашия сайт с код PARKBOOK в линка, за да се отчете продажбата.</div>');
       return;
     }
     logRenewClick(id, 'go', partner);
     window.open(partner.url, '_blank', 'noopener');
   });
-  const buyBtn = document.getElementById('renewBuyBtn');
-  if(buyBtn) buyBtn.addEventListener('click', ()=>openDemoBuy(id, carId));
   const closeBtn = document.getElementById('renewCloseBtn');
   if(closeBtn) closeBtn.addEventListener('click', close);
   const closeLink = document.getElementById('renewCloseLink');
   if(closeLink) closeLink.addEventListener('click', close);
   document.getElementById('renewDoneLink').addEventListener('click', ()=>{ close(); openSheet(id, carId); });
 }
-// ==== Демо на Вариант Б: покупка вътре в приложението (калкулатор на брокера) ====
-// Само за срещи с брокери — примерни цени, нищо не се плаща. Накрая датата се обновява,
-// за да се види как лентата горе става зелена.
-const DEMO_CIVIL_PRICES = [148.90, 156.40, 171.20]; // за 12 месеца
-const DEMO_PERIOD_FACTOR = {12:1, 6:0.55, 3:0.3};
-const DEMO_VIGNETTE_PRICES = {day:4.60, weekend:5.11, week:7.67, month:15.34, quarter:27.61, year:49.60};
-const eur = n => n.toFixed(2).replace('.', ',') + ' €';
-
-function openDemoBuy(id, carId){
-  const body = document.getElementById('renewBody');
-  const note = `<div class="renewNote">Демо — примерни цени, нищо не се плаща. Продажбата се извършва от ${RENEW_TEXTS[id].seller}; PARKBOOK само показва калкулатора му.</div>`;
-  const pay = (what, price, onPaid)=>{
-    body.innerHTML = `<p class="renewText">${what}</p>
-      <div class="calcExpiry" style="margin-bottom:14px; text-align:center; font-size:18px;">${eur(price)}</div>
-      <button class="renewGo" type="button" id="demoPayBtn">Плати ${eur(price)}</button>
-      <a class="renewLink" id="demoBackLink">Назад</a>${note}`;
-    document.getElementById('demoBackLink').addEventListener('click', ()=>openDemoBuy(id, carId));
-    document.getElementById('demoPayBtn').addEventListener('click', ()=>{
-      onPaid();
-      renderMain();
-      body.innerHTML = `<div style="text-align:center; font-size:40px; margin:4px 0 8px;">✅</div>
-        <p class="renewText" style="text-align:center;"><b>Готово!</b> ${id==='civil' ? 'Полицата е изпратена на имейла ти.' : 'Винетката е активна.'}<br>Обновихме датата в приложението.</p>
-        <button class="renewGo" type="button" id="demoDoneBtn">Затвори</button>${note}`;
-      document.getElementById('demoDoneBtn').addEventListener('click', ()=>{ document.getElementById('renewOverlay').style.display='none'; });
-    });
-  };
-
-  if(id==='civil'){
-    body.innerHTML = `<label>Регистрационен номер</label><input id="demoPlate" placeholder="СА 1234 ВР" style="text-transform:uppercase;">
-      <label>Период</label><select id="demoPeriod"><option value="12">12 месеца</option><option value="6">6 месеца</option><option value="3">3 месеца</option></select>
-      <button class="renewGo" type="button" id="demoQuoteBtn" style="margin-top:16px;">Виж цените</button>${note}`;
-    document.getElementById('demoQuoteBtn').addEventListener('click', ()=>{
-      const plate = (document.getElementById('demoPlate').value || 'СА 1234 ВР').toUpperCase();
-      const period = document.getElementById('demoPeriod').value;
-      const offers = DEMO_CIVIL_PRICES.map((p, i)=>({name:`Застраховател ${i+1}`, price: p * DEMO_PERIOD_FACTOR[period]}));
-      body.innerHTML = `<p class="renewText">Оферти за <b>${escapeHtml(plate)}</b> · ${period} месеца</p>`
-        + offers.map((o, i)=>`<div class="codeRow"><span><b>${o.name}</b><br><span class="meta">${eur(o.price)}</span></span><button class="renewBtn ${i===0?'hot':''}" style="margin:0;" type="button" data-offer="${i}">Избери</button></div>`).join('')
-        + `<a class="renewLink" id="demoBackLink">Назад</a>${note}`;
-      document.getElementById('demoBackLink').addEventListener('click', ()=>openDemoBuy(id, carId));
-      body.querySelectorAll('[data-offer]').forEach(b=>b.addEventListener('click', ()=>{
-        const o = offers[b.dataset.offer];
-        pay(`Гражданска отговорност за <b>${escapeHtml(plate)}</b><br>${o.name} · ${period} месеца`, o.price, ()=>{
-          const data = getData(carId); data.civil = {date: todayISO(), period}; saveData(carId, data);
-        });
-      }));
-    });
-  } else {
-    const opts = Object.entries(VIGNETTE_TYPES).map(([k,v])=>`<option value="${k}" ${k==='year'?'selected':''}>${v}</option>`).join('');
-    body.innerHTML = `<label>Регистрационен номер</label><input id="demoPlate" placeholder="СА 1234 ВР" style="text-transform:uppercase;">
-      <label>Вид винетка</label><select id="demoVtype">${opts}</select>
-      <button class="renewGo" type="button" id="demoQuoteBtn" style="margin-top:16px;">Продължи</button>${note}`;
-    document.getElementById('demoQuoteBtn').addEventListener('click', ()=>{
-      const plate = (document.getElementById('demoPlate').value || 'СА 1234 ВР').toUpperCase();
-      const vtype = document.getElementById('demoVtype').value;
-      pay(`${VIGNETTE_TYPES[vtype]} винетка за <b>${escapeHtml(plate)}</b><br>валидна от днес до ${fmtDate(vignetteExpiry(todayISO(), vtype))}`, DEMO_VIGNETTE_PRICES[vtype], ()=>{
-        const data = getData(carId); data.vignette = {vtype, date: todayISO()}; saveData(carId, data);
-      });
-    });
-  }
-}
-
 document.getElementById('renewOverlay').addEventListener('click', e=>{ if(e.target.id==='renewOverlay') e.target.style.display='none'; });
 function escapeHtml(s){
   return String(s ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
