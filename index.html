@@ -30,6 +30,9 @@ h1,.brand{font-family:'Space Grotesk',sans-serif;}
 .brand{display:flex; align-items:center; gap:10px; margin-bottom:18px;}
 .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--amber); box-shadow:0 0 10px var(--amber);}
 .brand span{font-weight:700; font-size:17px;}
+.langSwitch{margin-left:auto; display:flex; gap:4px; font-family:'Inter',sans-serif;}
+.langSwitch button{background:transparent; color:var(--muted); border:1px solid var(--line); border-radius:100px; padding:4px 10px; font-size:11.5px; font-weight:700;}
+.langSwitch button.active{background:var(--panel2); color:var(--ink); border-color:var(--muted);}
 .carSwitcher{display:flex; gap:8px; overflow-x:auto; margin-bottom:14px; padding-bottom:2px;}
 .carPill{flex-shrink:0; background:var(--panel); border:1px solid var(--line); border-radius:100px; padding:8px 14px; font-size:13px; font-weight:600; color:var(--muted); cursor:pointer; white-space:nowrap;}
 .carPill.active{background:var(--amber); color:#1a1305; border-color:var(--amber);}
@@ -131,12 +134,12 @@ button{border:none; border-radius:10px; padding:12px; font-weight:700; font-size
 .renewNote{font-size:11.5px; color:var(--muted); line-height:1.5; margin-top:12px;}
 .toast{position:fixed; left:16px; right:16px; bottom:24px; z-index:50; background:var(--panel2); color:var(--ink); border:1px solid var(--green); border-radius:12px; padding:12px 16px; font-size:13.5px; font-weight:600; text-align:center; box-shadow:0 8px 24px rgba(0,0,0,.35);}
 .renewLink{display:block; text-align:center; margin-top:12px; font-size:12.5px; color:var(--muted); text-decoration:underline; cursor:pointer;}
-.demoTag{position:fixed; top:calc(8px + env(safe-area-inset-top,0px)); right:8px; background:var(--amber); color:#1a1305; font-size:10.5px; font-weight:700; padding:3px 8px; border-radius:100px; z-index:20;}
+.demoTag{position:fixed; bottom:calc(8px + env(safe-area-inset-bottom,0px)); right:8px; background:var(--amber); color:#1a1305; font-size:10.5px; font-weight:700; padding:3px 8px; border-radius:100px; z-index:20;}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="brand"><div class="dot"></div><span>Моят автомобил</span></div>
+  <div class="brand"><div class="dot"></div><span id="brandName">Моят автомобил</span><div class="langSwitch" id="langSwitch"></div></div>
 
   <div class="carSwitcher" id="carSwitcher"></div>
 
@@ -148,8 +151,8 @@ button{border:none; border-radius:10px; padding:12px; font-weight:700; font-size
     <h3 id="sheetTitle">Редакция</h3>
     <div id="sheetFields"></div>
     <div class="btnrow">
-      <button class="cancel" id="cancelBtn" type="button">Отказ</button>
-      <button class="save" id="saveBtn" type="button">Запази</button>
+      <button class="cancel" id="cancelBtn" type="button" data-t="cancel">Отказ</button>
+      <button class="save" id="saveBtn" type="button" data-t="save">Запази</button>
     </div>
   </div>
 </div>
@@ -162,6 +165,16 @@ button{border:none; border-radius:10px; padding:12px; font-weight:700; font-size
 </div>
 
 <script>
+// ==== Език: BG (по подразбиране) или EN. Всеки текст е tr('български', 'English'). ====
+// Смяната на езика презарежда страницата, за да се построят наново всички текстове.
+const LANG_KEY = 'car-tracker-lang-v1';
+const LANGS = ['bg', 'en'];
+let LANG = 'bg';
+try{ const s = localStorage.getItem(LANG_KEY); if(LANGS.includes(s)) LANG = s; }catch(e){}
+document.documentElement.lang = LANG;
+function tr(bg, en){ return LANG === 'en' ? en : bg; }
+function setLang(l){ try{ localStorage.setItem(LANG_KEY, l); }catch(e){} location.reload(); }
+
 // Днешната дата (без час), в същия вид като датите от полетата — 'ГГГГ-ММ-ДД' в полунощ UTC,
 // за да излиза точно броят на дните до изтичане.
 const now = new Date();
@@ -171,31 +184,31 @@ const ACTIVE_KEY = 'car-tracker-active-v1';
 const DATA_PREFIX = 'car-tracker-data-';
 
 const defs = [
-  {id:'oil', title:'Смяна на масло', mode:'km', fields:['date','km','nextKm'], premium:false,
-   labels:{date:'Дата',km:'Пробег при смяна (км)',nextKm:'Следваща смяна (км)'}},
-  {id:'tires', title:'Смяна на гуми', mode:'date_soft', fields:['date','note'], premium:false,
-   labels:{date:'Дата',note:'Бележка (напр. зимни / летни)'}},
-  {id:'chain', title:'Верига (смазване / смяна)', mode:'km', fields:['date','km','nextKm'], premium:false, only:'moto',
-   labels:{date:'Дата',km:'Пробег при обслужване (км)',nextKm:'Следващо обслужване (км)'}},
-  {id:'civil', title:'Гражданска отговорност', mode:'date_period', fields:['date','period'], premium:true,
-   labels:{date:'Дата на плащане',period:'Период'}},
+  {id:'oil', title:tr('Смяна на масло','Oil change'), mode:'km', fields:['date','km','nextKm'], premium:false,
+   labels:{date:tr('Дата','Date'),km:tr('Пробег при смяна (км)','Mileage at change (km)'),nextKm:tr('Следваща смяна (км)','Next change (km)')}},
+  {id:'tires', title:tr('Смяна на гуми','Tire change'), mode:'date_soft', fields:['date','note'], premium:false,
+   labels:{date:tr('Дата','Date'),note:tr('Бележка (напр. зимни / летни)','Note (e.g. winter / summer)')}},
+  {id:'chain', title:tr('Верига (смазване / смяна)','Chain (lube / replace)'), mode:'km', fields:['date','km','nextKm'], premium:false, only:'moto',
+   labels:{date:tr('Дата','Date'),km:tr('Пробег при обслужване (км)','Mileage at service (km)'),nextKm:tr('Следващо обслужване (км)','Next service (km)')}},
+  {id:'civil', title:tr('Гражданска отговорност','Liability insurance (MTPL)'), mode:'date_period', fields:['date','period'], premium:true,
+   labels:{date:tr('Дата на плащане','Payment date'),period:tr('Период','Period')}},
   // Мотоциклетите в България не плащат е-винетка (bgtoll.bg) — затова само за коли
-  {id:'vignette', title:'Винетка', mode:'vignette', fields:['vtype','date'], premium:true, only:'car',
-   labels:{vtype:'Вид',date:'Начало на валидност'}},
-  {id:'inspection', title:'Годишен технически преглед', mode:'date', fields:['date','expiry'], premium:true,
-   labels:{date:'Дата на преглед',expiry:'Изтича на'}},
-  {id:'casco', title:'Каско', mode:'date', fields:['date','expiry'], premium:true,
-   labels:{date:'Дата на плащане',expiry:'Изтича на'}}
+  {id:'vignette', title:tr('Винетка','Vignette'), mode:'vignette', fields:['vtype','date'], premium:true, only:'car',
+   labels:{vtype:tr('Вид','Type'),date:tr('Начало на валидност','Valid from')}},
+  {id:'inspection', title:tr('Годишен технически преглед','Annual technical inspection'), mode:'date', fields:['date','expiry'], premium:true,
+   labels:{date:tr('Дата на преглед','Inspection date'),expiry:tr('Изтича на','Expires on')}},
+  {id:'casco', title:tr('Каско','Casco (comprehensive)'), mode:'date', fields:['date','expiry'], premium:true,
+   labels:{date:tr('Дата на плащане','Payment date'),expiry:tr('Изтича на','Expires on')}}
 ];
 // Вид превозно средство: 'car' (по подразбиране — и за старите записи без вид) или 'moto'
-const VEHICLE_TYPES = {car:{label:'Кола', icon:'🚗'}, moto:{label:'Мотор', icon:'🏍️'}};
+const VEHICLE_TYPES = {car:{label:tr('Кола','Car'), icon:'🚗'}, moto:{label:tr('Мотор','Motorcycle'), icon:'🏍️'}};
 function vehicleType(car){ return car && car.type === 'moto' ? 'moto' : 'car'; }
 function defsFor(car){ const t = vehicleType(car); return defs.filter(d=>!d.only || d.only===t); }
 // Сезонна бележка за мотора: пролетта — проверка преди сезона, зимата — акумулаторът
 function motoSeasonTip(){
   const m = now.getMonth() + 1;
-  if(m >= 3 && m <= 4) return 'Пролетта идва 🏍️ Провери акумулатора, веригата, гумите и ГО преди сезона.';
-  if(m >= 11 || m <= 2) return 'Зимата 🔋 Зареждай акумулатора веднъж месечно, за да те чака готов напролет.';
+  if(m >= 3 && m <= 4) return tr('Пролетта идва 🏍️ Провери акумулатора, веригата, гумите и ГО преди сезона.', 'Spring is coming 🏍️ Check the battery, chain, tires and insurance before the season.');
+  if(m >= 11 || m <= 2) return tr('Зимата 🔋 Зареждай акумулатора веднъж месечно, за да те чака готов напролет.', 'Winter 🔋 Charge the battery once a month so it is ready in spring.');
   return '';
 }
 
@@ -209,33 +222,33 @@ function motoSeasonTip(){
 const RENEW_PARTNERS = {civil: null, vignette: null, casco: null};
 const RENEW_TEXTS = {
   civil: {
-    about: name => `Купи гражданска отговорност онлайн от <b>${name}</b> — лицензиран застрахователен брокер, наш партньор. Цената е същата като директно при тях.`,
-    go: 'Поднови при брокера',
-    note: 'PARKBOOK не продава застраховки — само те препраща и може да получи комисиона от партньора.',
-    done: 'Вече я поднових — въведи новата дата',
-    soon: 'Скоро ще можеш да подновяваш гражданската направо оттук — с проверен брокер, на същата цена.',
-    demoName: 'Вашият брокер'
+    about: name => tr(`Купи гражданска отговорност онлайн от <b>${name}</b> — лицензиран застрахователен брокер, наш партньор. Цената е същата като директно при тях.`, `Buy liability insurance online from <b>${name}</b> — a licensed insurance broker and our partner. Same price as buying from them directly.`),
+    go: tr('Поднови при брокера', 'Renew with the broker'),
+    note: tr('PARKBOOK не продава застраховки — само те препраща и може да получи комисиона от партньора.', 'PARKBOOK does not sell insurance — it only refers you and may receive a commission from the partner.'),
+    done: tr('Вече я поднових — въведи новата дата', 'Already renewed — enter the new date'),
+    soon: tr('Скоро ще можеш да подновяваш гражданската направо оттук — с проверен брокер, на същата цена.', 'Soon you will be able to renew your liability insurance right here — with a trusted broker, at the same price.'),
+    demoName: tr('Вашият брокер', 'Your brokerage')
   },
   vignette: {
-    about: name => `Купи електронна винетка онлайн от <b>${name}</b> — оторизиран продавач на е-винетки, наш партньор. Получаваш официалната винетка, валидна веднага.`,
-    go: 'Купи от партньора',
-    note: 'PARKBOOK не продава винетки — само те препраща и може да получи комисиона от партньора.',
-    done: 'Вече я купих — въведи новата дата',
-    soon: 'Скоро ще можеш да купуваш винетка направо оттук — от проверен партньор.',
-    demoName: 'Вашата компания'
+    about: name => tr(`Купи електронна винетка онлайн от <b>${name}</b> — оторизиран продавач на е-винетки, наш партньор. Получаваш официалната винетка, валидна веднага.`, `Buy an e-vignette online from <b>${name}</b> — an authorised e-vignette seller and our partner. You get the official vignette, valid immediately.`),
+    go: tr('Купи от партньора', 'Buy from the partner'),
+    note: tr('PARKBOOK не продава винетки — само те препраща и може да получи комисиона от партньора.', 'PARKBOOK does not sell vignettes — it only refers you and may receive a commission from the partner.'),
+    done: tr('Вече я купих — въведи новата дата', 'Already bought — enter the new date'),
+    soon: tr('Скоро ще можеш да купуваш винетка направо оттук — от проверен партньор.', 'Soon you will be able to buy a vignette right here — from a trusted partner.'),
+    demoName: tr('Вашата компания', 'Your company')
   },
   // Каско има и за коли, и за мотори — партньор е застраховател или брокер
   casco: {
-    about: name => `Поднови каското онлайн при <b>${name}</b> — наш партньор. Сравни покритието и цената, преди сегашното да изтече.`,
-    go: 'Поднови при партньора',
-    note: 'PARKBOOK не продава застраховки — само те препраща и може да получи комисиона от партньора.',
-    done: 'Вече го поднових — въведи новата дата',
-    soon: 'Скоро ще можеш да подновяваш каското направо оттук — при проверен партньор.',
-    demoName: 'Вашата компания'
+    about: name => tr(`Поднови каското онлайн при <b>${name}</b> — наш партньор. Сравни покритието и цената, преди сегашното да изтече.`, `Renew your casco online with <b>${name}</b> — our partner. Compare cover and price before the current one expires.`),
+    go: tr('Поднови при партньора', 'Renew with the partner'),
+    note: tr('PARKBOOK не продава застраховки — само те препраща и може да получи комисиона от партньора.', 'PARKBOOK does not sell insurance — it only refers you and may receive a commission from the partner.'),
+    done: tr('Вече го поднових — въведи новата дата', 'Already renewed — enter the new date'),
+    soon: tr('Скоро ще можеш да подновяваш каското направо оттук — при проверен партньор.', 'Soon you will be able to renew your casco right here — with a trusted partner.'),
+    demoName: tr('Вашата компания', 'Your company')
   }
 };
-const RENEW_LABELS = {civil:'Поднови ГО', vignette:'Купи винетка', casco:'Поднови каско'};
-const RENEW_TITLES = {civil:'Поднови гражданската', vignette:'Купи винетка', casco:'Поднови каското'};
+const RENEW_LABELS = {civil:tr('Поднови ГО','Renew insurance'), vignette:tr('Купи винетка','Buy vignette'), casco:tr('Поднови каско','Renew casco')};
+const RENEW_TITLES = {civil:tr('Поднови гражданската','Renew liability insurance'), vignette:tr('Купи винетка','Buy a vignette'), casco:tr('Поднови каското','Renew casco')};
 // Демо за срещи с брокери: отвори приложението с ?demo — показва как изглежда с партньор.
 // Остава включено до затваряне на раздела.
 let DEMO_MODE = false;
@@ -395,12 +408,12 @@ function fmtDate(dateStr){
 }
 // ==== Винетка: видът определя колко важи. Пазим последния валиден ден (по-скоро рано, отколкото късно). ====
 const VIGNETTE_TYPES = {
-  day:     'Еднодневна',
-  weekend: 'Уикенд',
-  week:    'Седмична',
-  month:   'Месечна',
-  quarter: 'Тримесечна',
-  year:    'Годишна'
+  day:     tr('Еднодневна', 'One day'),
+  weekend: tr('Уикенд', 'Weekend'),
+  week:    tr('Седмична', 'Weekly'),
+  month:   tr('Месечна', 'Monthly'),
+  quarter: tr('Тримесечна', 'Quarterly'),
+  year:    tr('Годишна', 'Annual')
 };
 function addDays(dateStr, n){
   const d = new Date(dateStr);
@@ -430,40 +443,86 @@ function statusFor(def, data, currentKm){
   // days / expiry — ползват се от лентата със статуса най-горе
   // Маслото и гумите са дневник: приложението не знае реалния пробег, затова са без цвят/срок.
   if(def.mode==='km' || def.mode==='date_soft'){
-    return (rec && rec.date) ? {cls:'info', label:'Записано'} : {cls:'info', label:'Няма запис', missing:true};
+    return (rec && rec.date) ? {cls:'info', label:tr('Записано','Logged')} : {cls:'info', label:tr('Няма запис','No entry'), missing:true};
   }
-  if(!rec || !rec.date) return {cls:'soon', label:'Няма данни', missing:true};
+  if(!rec || !rec.date) return {cls:'soon', label:tr('Няма данни','No data'), missing:true};
   if(def.mode==='date_period'){
-    if(!rec.period) return {cls:'soon', label:'Няма период', missing:true};
+    if(!rec.period) return {cls:'soon', label:tr('Няма период','No period'), missing:true};
     const expiry = addMonths(rec.date, rec.period);
     const d = daysUntil(expiry);
-    if(d<=7) return {cls:'over', label: d<0 ? 'Изтекла' : `${d} дни`, days:d, expiry};
-    if(d<=15) return {cls:'soon', label:`${d} дни`, days:d, expiry};
-    return {cls:'ok', label:'Валидна', days:d, expiry};
+    if(d<=7) return {cls:'over', label: d<0 ? tr('Изтекла','Expired') : daysLabel(d), days:d, expiry};
+    if(d<=15) return {cls:'soon', label:daysLabel(d), days:d, expiry};
+    return {cls:'ok', label:tr('Валидна','Valid'), days:d, expiry};
   }
   if(def.mode==='vignette'){
     const expiry = vignetteExpiry(rec.date, rec.vtype);
     const d = daysUntil(expiry);
-    if(d<=7) return {cls:'over', label: d<0 ? 'Изтекла' : (d===0 ? 'Днес' : `${d} дни`), days:d, expiry};
-    if(d<=15) return {cls:'soon', label:`${d} дни`, days:d, expiry};
-    return {cls:'ok', label:'Валидна', days:d, expiry};
+    if(d<=7) return {cls:'over', label: d<0 ? tr('Изтекла','Expired') : (d===0 ? tr('Днес','Today') : daysLabel(d)), days:d, expiry};
+    if(d<=15) return {cls:'soon', label:daysLabel(d), days:d, expiry};
+    return {cls:'ok', label:tr('Валидна','Valid'), days:d, expiry};
   }
   if(def.mode==='date'){
     const d = daysUntil(rec.expiry);
-    if(d===null) return {cls:'soon', label:'Няма дата', missing:true};
-    if(d<=7) return {cls:'over', label: d<0 ? 'Изтекъл' : `${d} дни`, days:d, expiry:rec.expiry};
-    if(d<=15) return {cls:'soon', label:`${d} дни`, days:d, expiry:rec.expiry};
-    return {cls:'ok', label:'Валиден', days:d, expiry:rec.expiry};
+    if(d===null) return {cls:'soon', label:tr('Няма дата','No date'), missing:true};
+    if(d<=7) return {cls:'over', label: d<0 ? tr('Изтекъл','Expired') : daysLabel(d), days:d, expiry:rec.expiry};
+    if(d<=15) return {cls:'soon', label:daysLabel(d), days:d, expiry:rec.expiry};
+    return {cls:'ok', label:tr('Валиден','Valid'), days:d, expiry:rec.expiry};
   }
-  return {cls:'info', label:'Записано'};
+  return {cls:'info', label:tr('Записано','Logged')};
 }
+function daysLabel(d){ return tr(`${d} дни`, d===1 ? '1 day' : `${d} days`); }
 
 // ==== Лентата със статуса най-горе — казва КАКВО наближава, а когато всичко е наред, е приятелска ====
-const SHORT_NAMES = {oil:'Маслото', tires:'Гумите', chain:'Веригата', civil:'Гражданската', vignette:'Винетката', inspection:'Прегледът', casco:'Каското'};
+const SHORT_NAMES = LANG === 'en'
+  ? {oil:'Oil', tires:'Tires', chain:'Chain', civil:'Liability insurance', vignette:'Vignette', inspection:'Inspection', casco:'Casco'}
+  : {oil:'Маслото', tires:'Гумите', chain:'Веригата', civil:'Гражданската', vignette:'Винетката', inspection:'Прегледът', casco:'Каското'};
 // ==== Репликите на талисмана — приятелски и леко нахален тон (като Duolingo), никога обиден ====
 // {x} се заменя с най-спешното, напр. „гражданската изтича след 4 дни“. Репликата на деня се сменя всеки ден,
 // а при натискане на колата излиза друга (от същото настроение или от TAP_LINES).
-const MASCOT_LINES = {
+const MASCOT_LINES = LANG === 'en' ? {
+  happy: [
+    'Papers in order. I\'m in order. You\'re in order. 😎',
+    'Happiest car in the parking lot today.',
+    'If I were human, I\'d buy you a coffee ☕',
+    'Drive easy. I\'ve got the deadlines.',
+    'Nothing\'s on fire. Except my urge for a road trip 🛣️',
+    'Clean record. Proud of us 👌',
+    'Peace of mind on 4 wheels ✨',
+    'Everything paid on time. Who\'s the champ? You 🙌',
+    'Smiling for no reason. Actually, there is a reason 💚',
+    'Start me up. I\'ll hum along 🎶'
+  ],
+  worried: [
+    'Don\'t want to worry you, but… {x} 😬',
+    'I\'m a little scared… {x}.',
+    'Psst… {x}. Just saying. 👀',
+    'My engine is racing: {x} 😅',
+    'Don\'t look at me like that, it\'s not my fault — {x} 🙈',
+    'Gentle reminder from your car: {x} 💛',
+    'If you love me… {x} 🥹',
+    'Marking it with a yellow highlighter: {x} ✍️'
+  ],
+  sad: [
+    'I\'m about to cry… {x} 😢',
+    'I urgently need attention: {x} 🚨',
+    'Sitting sad in the garage, because {x} 🥺',
+    'Not a drama. OK, a little drama: {x} 😭',
+    'Please, please, please… {x} 🙏',
+    'I don\'t want to get pulled over: {x} 👮',
+    'My headlights are full of tears: {x}',
+    'SOS from your car: {x} 🆘'
+  ],
+  sleepy: [
+    'Wake me up when you add your expiry dates 😴',
+    'Zzz… I know nothing about my papers. Tell me? 👇',
+    'Dreaming of dates. Just don\'t know them 💤',
+    'Add the deadlines and I promise not to fall asleep on duty 🫡',
+    'I\'ll guard the deadlines, just tell me what they are 👇',
+    'Hrrr… Huh? When does the insurance expire? 😪',
+    'Wake me with one date. Just one 🥱',
+    'I can guard your documents if you show them to me 👇'
+  ]
+} : {
   happy: [
     'Документите са в ред. Аз съм в ред. Ти си в ред. 😎',
     'Днес съм най-щастливата кола на паркинга.',
@@ -507,7 +566,16 @@ const MASCOT_LINES = {
     'Мога да пазя документите ти, ако ми ги покажеш 👇'
   ]
 };
-const TAP_LINES = [
+const TAP_LINES = LANG === 'en' ? [
+  'Hey, that tickles! 😆',
+  'Beep-beep!',
+  'Washed me lately? Just asking. 🫧',
+  'One more time and I\'ll honk 📯',
+  'Careful, my headlights are sensitive 😳',
+  'Road trip? 🛣️',
+  'I\'m a car, not a button! …OK, a bit of a button 🙃',
+  'Thanks for the attention! 💛'
+] : [
   'Ей, гъделичка ме! 😆',
   'Бип-бип!',
   'Изми ли ме скоро? Питам без да питам. 🫧',
@@ -525,10 +593,10 @@ function mascotLine(mood, x){
 }
 
 function whenText(s){
-  if(s.days < 0) return `изтече преди ${-s.days} ${-s.days===1 ? 'ден' : 'дни'}`;
-  if(s.days === 0) return 'изтича днес';
-  if(s.days === 1) return 'изтича утре';
-  return `изтича след ${s.days} дни`;
+  if(s.days < 0) return tr(`изтече преди ${-s.days} ${-s.days===1 ? 'ден' : 'дни'}`, `expired ${-s.days} ${-s.days===1 ? 'day' : 'days'} ago`);
+  if(s.days === 0) return tr('изтича днес', 'expires today');
+  if(s.days === 1) return tr('изтича утре', 'expires tomorrow');
+  return tr(`изтича след ${s.days} дни`, `expires in ${s.days} days`);
 }
 function phrase(e){ return `${SHORT_NAMES[e.def.id] || e.def.title} ${whenText(e.s)}`; }
 
@@ -563,7 +631,7 @@ function mascotHtml(summaryCls){
     sleepy:  '<text class="zz" x="72" y="30" font-size="10" font-weight="700" fill="#8b93a1" font-family="Space Grotesk,sans-serif">z</text><text class="zz" x="79" y="23" font-size="7" font-weight="700" fill="#8b93a1" font-family="Space Grotesk,sans-serif">z</text>',
     happy:   ''
   }[mood];
-  return `<button class="mascot ${mood}" type="button" aria-label="Натисни колата — ще ти каже нещо"><svg viewBox="16 18 70 62" aria-hidden="true">
+  return `<button class="mascot ${mood}" type="button" aria-label="${tr('Натисни колата — ще ти каже нещо', 'Tap the car — it will say something')}"><svg viewBox="16 18 70 62" aria-hidden="true">
     <ellipse cx="50" cy="77" rx="28" ry="2.6" fill="#000" opacity=".3"/>
     <path d="M31 46 L37 31 Q39 26 45 26 L55 26 Q61 26 63 31 L69 46 Z" fill="#e8a33d"/>
     <path d="M37 44 L41.5 33 Q42.5 30.5 45.5 30.5 L54.5 30.5 Q57.5 30.5 58.5 33 L63 44 Z" fill="#3a4150"/>
@@ -576,10 +644,10 @@ function mascotHtml(summaryCls){
 
 function buildSummary(defsList, data, km, type){
   const docs = defsList.filter(def=>SUMMARY_IDS.includes(def.id));
-  const docNames = type === 'moto' ? 'гражданска, преглед и каско' : 'гражданска, винетка, преглед и каско';
+  const docNames = type === 'moto' ? tr('гражданска, преглед и каско', 'liability insurance, inspection and casco') : tr('гражданска, винетка, преглед и каско', 'liability insurance, vignette, inspection and casco');
   if(!docs.length){
     // Безплатна версия — документите са заключени
-    return {cls:'ok', main:mascotLine('happy'), sub:`Следи ${docNames} с премиум — ще ти казваме кога изтичат.`};
+    return {cls:'ok', main:mascotLine('happy'), sub:tr(`Следи ${docNames} с премиум — ще ти казваме кога изтичат.`, `Track ${docNames} with premium — we will tell you when they expire.`)};
   }
   const entries = docs.map(def=>({def, s:statusFor(def, data, km)}));
   const tracked = entries.filter(e=>!e.s.missing && e.s.days !== undefined).sort((a,b)=>a.s.days-b.s.days);
@@ -588,7 +656,7 @@ function buildSummary(defsList, data, km, type){
   const missing = entries.filter(e=>e.s.missing).map(e=>SHORT_NAMES[e.def.id] || e.def.title);
 
   if(!tracked.length){
-    return {cls:'none', main:mascotLine('sleepy'), sub:`Въведи датите за ${docNames} — ще ти казваме кога наближават.`};
+    return {cls:'none', main:mascotLine('sleepy'), sub:tr(`Въведи датите за ${docNames} — ще ти казваме кога наближават.`, `Enter the dates for ${docNames} — we will tell you when they are coming up.`)};
   }
   if(over.length || soon.length){
     const urgent = [...over, ...soon];
@@ -596,35 +664,35 @@ function buildSummary(defsList, data, km, type){
     const first = phrase(urgent[0]);
     const x = first.charAt(0).toLowerCase() + first.slice(1);   // в средата на изречението
     return {cls: over.length ? 'over' : 'soon', main:mascotLine(over.length ? 'sad' : 'worried', x), x,
-      sub: rest ? `Също: ${rest}` : 'Натисни реда отдолу, за да го обновиш.',
+      sub: rest ? `${tr('Също','Also')}: ${rest}` : tr('Натисни реда отдолу, за да го обновиш.', 'Tap the row below to update it.'),
       renewId: RENEW_LABELS[urgent[0].def.id] ? urgent[0].def.id : null};
   }
   const next = tracked[0];
-  const when = `${SHORT_NAMES[next.def.id]} на ${fmtDate(next.s.expiry)} (след ${next.s.days} дни)`;
-  let sub = `Следва: ${when}`;
-  if(missing.length) sub += ` · Попълни: ${missing.join(', ').toLowerCase()}`;
+  const when = tr(`${SHORT_NAMES[next.def.id]} на ${fmtDate(next.s.expiry)} (след ${next.s.days} дни)`, `${SHORT_NAMES[next.def.id]} on ${fmtDate(next.s.expiry)} (in ${next.s.days} days)`);
+  let sub = `${tr('Следва','Next')}: ${when}`;
+  if(missing.length) sub += ` · ${tr('Попълни','Fill in')}: ${missing.join(', ').toLowerCase()}`;
   if(type === 'moto' && motoSeasonTip()) sub += `<br>${motoSeasonTip()}`;
   return {cls:'ok', main:mascotLine('happy'), sub};
 }
 
 function detailFor(def, data){
   const rec = data[def.id];
-  if(!rec || !rec.date) return 'Няма въведени данни';
+  if(!rec || !rec.date) return tr('Няма въведени данни', 'No data entered');
   if(def.mode==='date_period'){
     if(!rec.period) return fmtDate(rec.date);
-    return `${fmtDate(rec.date)} · ${rec.period} мес. → изтича ${fmtDate(addMonths(rec.date, rec.period))}`;
+    return `${fmtDate(rec.date)} · ${rec.period} ${tr('мес.','mo.')} → ${tr('изтича','expires')} ${fmtDate(addMonths(rec.date, rec.period))}`;
   }
   if(def.mode==='vignette'){
-    return `${VIGNETTE_TYPES[rec.vtype] || VIGNETTE_TYPES.year} · от ${fmtDate(rec.date)} → изтича ${fmtDate(vignetteExpiry(rec.date, rec.vtype))}`;
+    return `${VIGNETTE_TYPES[rec.vtype] || VIGNETTE_TYPES.year} · ${tr('от','from')} ${fmtDate(rec.date)} → ${tr('изтича','expires')} ${fmtDate(vignetteExpiry(rec.date, rec.vtype))}`;
   }
-  if(def.mode==='date') return `${fmtDate(rec.date)}${rec.expiry ? ' → изтича ' + fmtDate(rec.expiry) : ''}`;
-  const fmtKm = v => v ? (parseInt(v,10)||0).toLocaleString('bg-BG') + ' км' : '';
+  if(def.mode==='date') return `${fmtDate(rec.date)}${rec.expiry ? ` → ${tr('изтича','expires')} ` + fmtDate(rec.expiry) : ''}`;
+  const fmtKm = v => v ? (parseInt(v,10)||0).toLocaleString(tr('bg-BG','en-GB')) + tr(' км',' km') : '';
   if(def.mode==='km'){
-    const at = rec.km ? ` при ${fmtKm(rec.km)}` : '';
-    const next = rec.nextKm ? ` · следваща при ${fmtKm(rec.nextKm)}` : '';
-    return `Сменено на ${fmtDate(rec.date)}${at}${next}`;
+    const at = rec.km ? ` ${tr('при','at')} ${fmtKm(rec.km)}` : '';
+    const next = rec.nextKm ? ` · ${tr('следваща при','next at')} ${fmtKm(rec.nextKm)}` : '';
+    return `${tr('Сменено на','Done on')} ${fmtDate(rec.date)}${at}${next}`;
   }
-  return `Сменени на ${fmtDate(rec.date)}${rec.note ? ' · '+rec.note : ''}`;
+  return `${tr('Сменени на','Changed on')} ${fmtDate(rec.date)}${rec.note ? ' · '+rec.note : ''}`;
 }
 
 function renderSwitcher(){
@@ -633,8 +701,8 @@ function renderSwitcher(){
   const carLimit = isPremium ? MAX_CARS_PREMIUM : 1;
   const canAdd = cars.length < carLimit;
   const addPill = canAdd
-    ? `<div class="carPill addNew" id="addCarPill">+ Добави</div>`
-    : `<div class="carPill addNew" id="addCarPill" style="opacity:0.5;">🔒 + Добави</div>`;
+    ? `<div class="carPill addNew" id="addCarPill">+ ${tr('Добави','Add')}</div>`
+    : `<div class="carPill addNew" id="addCarPill" style="opacity:0.5;">🔒 + ${tr('Добави','Add')}</div>`;
   box.innerHTML = pills + addPill;
   box.querySelectorAll('.carPill[data-id]').forEach(el=>{
     el.addEventListener('click', ()=>{ activeId = el.dataset.id; saveActive(); renderAll(); });
@@ -650,19 +718,19 @@ function renderSwitcher(){
         box.parentNode.insertBefore(note, box.nextSibling);
       }
       note.textContent = isPremium
-        ? `Достигнат е максимумът от ${MAX_CARS_PREMIUM} превозни средства.`
-        : 'Втора кола или мотор е достъпна само с абонамент — 9,99 €/година.';
+        ? tr(`Достигнат е максимумът от ${MAX_CARS_PREMIUM} превозни средства.`, `You have reached the maximum of ${MAX_CARS_PREMIUM} vehicles.`)
+        : tr('Втора кола или мотор е достъпна само с абонамент — 9,99 €/година.', 'A second car or motorcycle needs a subscription — €9.99/year.');
     }
   });
 }
 
 function openAddCar(){
-  document.getElementById('sheetTitle').textContent = 'Добави кола или мотор';
+  document.getElementById('sheetTitle').textContent = tr('Добави кола или мотор', 'Add a car or motorcycle');
   const typeOpts = Object.entries(VEHICLE_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('');
   document.getElementById('sheetFields').innerHTML = `
-    <label>Вид</label><select data-f="type">${typeOpts}</select>
-    <label>Марка и модел</label><input data-f="name" placeholder="Напр. VW Golf VII, 2016 или Honda CB500F">
-    <label>Текущ пробег (км)</label><input data-f="km" type="number" placeholder="142300">
+    <label>${tr('Вид','Type')}</label><select data-f="type">${typeOpts}</select>
+    <label>${tr('Марка и модел','Make and model')}</label><input data-f="name" placeholder="${tr('Напр. VW Golf VII, 2016 или Honda CB500F','E.g. VW Golf VII, 2016 or Honda CB500F')}">
+    <label>${tr('Текущ пробег (км)','Current mileage (km)')}</label><input data-f="km" type="number" placeholder="142300">
   `;
   document.getElementById('overlay').style.display='flex';
   document.getElementById('overlay').dataset.editing = '__newcar';
@@ -671,7 +739,7 @@ function openAddCar(){
 function renderMain(){
   const box = document.getElementById('mainArea');
   if(!cars.length){
-    box.innerHTML = `<div class="emptyState"><div class="big">🚗</div><p>Все още нямаш добавена кола или мотор.</p><button class="save" id="firstCarBtn" style="width:auto;padding:11px 20px;">Добави</button></div>`;
+    box.innerHTML = `<div class="emptyState"><div class="big">🚗</div><p>${tr('Все още нямаш добавена кола или мотор.','You have not added a car or motorcycle yet.')}</p><button class="save" id="firstCarBtn" style="width:auto;padding:11px 20px;">${tr('Добави','Add')}</button></div>`;
     document.getElementById('firstCarBtn').addEventListener('click', openAddCar);
     return;
   }
@@ -683,7 +751,7 @@ function renderMain(){
   isPremium = premiumStatus.active;
   const fullAccess = isPremium || trial.active;
   const premiumBanner = (isPremium && !premiumStatus.permanent)
-    ? `<div class="premiumBanner">Премиум достъп (от промо код) — остават ${premiumStatus.daysLeft} дни, до ${fmtDate(premiumStatus.until)}</div>`
+    ? `<div class="premiumBanner">${tr(`Премиум достъп (от промо код) — остават ${premiumStatus.daysLeft} дни, до ${fmtDate(premiumStatus.until)}`, `Premium access (promo code) — ${premiumStatus.daysLeft} days left, until ${fmtDate(premiumStatus.until)}`)}</div>`
     : '';
   const carDefs = defsFor(car);
   const unlocked = carDefs.filter(d=>!d.premium || fullAccess);
@@ -704,30 +772,30 @@ function renderMain(){
   }).join('');
 
   const lockedHtml = locked.map(def=>`
-    <div class="locked"><div class="lockIcon">🔒</div><div class="item-title">${def.title}</div><div class="item-detail">Заключено</div></div>
+    <div class="locked"><div class="lockIcon">🔒</div><div class="item-title">${def.title}</div><div class="item-detail">${tr('Заключено','Locked')}</div></div>
   `).join('');
 
   let unlockBlock = '';
   if(locked.length){
     if(trial.active){
-      unlockBlock = `<div class="unlockCard"><div class="unlockTitle">Пробен период: ${trial.daysLeft} дни остават</div><div class="unlockSub">После 0,99 €/месец или 9,99 €/година</div></div>`;
+      unlockBlock = `<div class="unlockCard"><div class="unlockTitle">${tr(`Пробен период: ${trial.daysLeft} дни остават`, `Free trial: ${trial.daysLeft} days left`)}</div><div class="unlockSub">${tr('После 0,99 €/месец или 9,99 €/година', 'Then €0.99/month or €9.99/year')}</div></div>`;
     } else if(!trial.started){
-      unlockBlock = `<div class="unlockCard"><div class="unlockTitle">1 месец безплатно</div><div class="unlockSub">Пробвай всичко за 1 кола, без карта</div>
-        <button class="unlockBtn" id="trialBtn" style="margin-bottom:10px;">Започни безплатния месец</button>
-        <div class="promoRow"><input id="promoInput" placeholder="Промокод (по избор)"><button class="applyPromo" id="applyPromoBtn">Приложи</button></div>
+      unlockBlock = `<div class="unlockCard"><div class="unlockTitle">${tr('1 месец безплатно','1 month free')}</div><div class="unlockSub">${tr('Пробвай всичко за 1 кола, без карта','Try everything for 1 car, no card needed')}</div>
+        <button class="unlockBtn" id="trialBtn" style="margin-bottom:10px;">${tr('Започни безплатния месец','Start the free month')}</button>
+        <div class="promoRow"><input id="promoInput" placeholder="${tr('Промокод (по избор)','Promo code (optional)')}"><button class="applyPromo" id="applyPromoBtn">${tr('Приложи','Apply')}</button></div>
         <div class="promoMsg" id="promoMsg"></div>
-        <div class="unlockSub" style="margin:10px 0 6px;">или директно абонамент</div>
-        <button class="unlockBtn" id="unlockBtn">0,99 €/мес. или 9,99 €/год.</button></div>`;
+        <div class="unlockSub" style="margin:10px 0 6px;">${tr('или директно абонамент','or subscribe right away')}</div>
+        <button class="unlockBtn" id="unlockBtn">${tr('0,99 €/мес. или 9,99 €/год.','€0.99/mo. or €9.99/yr.')}</button></div>`;
     } else {
-      unlockBlock = `<div class="unlockCard"><div class="unlockTitle">Пробният период изтече</div><div class="unlockSub">0,99 €/месец или 9,99 €/година</div>
-        <div class="promoRow"><input id="promoInput" placeholder="Промокод (по избор)"><button class="applyPromo" id="applyPromoBtn">Приложи</button></div>
+      unlockBlock = `<div class="unlockCard"><div class="unlockTitle">${tr('Пробният период изтече','Your free trial has ended')}</div><div class="unlockSub">${tr('0,99 €/месец или 9,99 €/година','€0.99/month or €9.99/year')}</div>
+        <div class="promoRow"><input id="promoInput" placeholder="${tr('Промокод (по избор)','Promo code (optional)')}"><button class="applyPromo" id="applyPromoBtn">${tr('Приложи','Apply')}</button></div>
         <div class="promoMsg" id="promoMsg"></div>
-        <button class="unlockBtn" id="unlockBtn">Абонирай се</button></div>`;
+        <button class="unlockBtn" id="unlockBtn">${tr('Абонирай се','Subscribe')}</button></div>`;
     }
   }
 
   box.innerHTML = `
-    <div class="carcard"><h2>${VEHICLE_TYPES[vehicleType(car)].icon} ${car.name}</h2><div class="sub">Текущ пробег: ${(car.km||0).toLocaleString('bg-BG')} км</div></div>
+    <div class="carcard"><h2>${VEHICLE_TYPES[vehicleType(car)].icon} ${car.name}</h2><div class="sub">${tr('Текущ пробег','Current mileage')}: ${(car.km||0).toLocaleString(tr('bg-BG','en-GB'))} ${tr('км','km')}</div></div>
     ${premiumBanner}
     <div class="summary withMascot ${summary.cls}">${mascotHtml(summary.cls)}<div><div class="smain">${summary.main}</div><div class="ssub">${summary.sub}</div>${summary.renewId ? `<button class="renewBtn hot" type="button" data-renew="${summary.renewId}">${RENEW_LABELS[summary.renewId]} →</button>` : ''}</div></div>
     <div id="items">${itemsHtml}</div>
@@ -771,7 +839,7 @@ function renderMain(){
 
     applyPromoBtn.disabled = true;
     msg.className = 'promoMsg';
-    msg.textContent = 'Проверка…';
+    msg.textContent = tr('Проверка…', 'Checking…');
 
     if(SUPABASE_CONFIGURED){
       try{
@@ -782,15 +850,15 @@ function renderMain(){
           premiumStatus = getPremiumStatus();
           isPremium = premiumStatus.active;
           msg.className = 'promoMsg ok';
-          msg.textContent = `Код приет — безплатно до ${fmtDate(until)}, после 0,99 €/мес. или 9,99 €/год.`;
+          msg.textContent = promoOkText(until);
           renderAll();
         } else {
           msg.className = 'promoMsg bad';
-          msg.textContent = 'Невалиден или вече използван код';
+          msg.textContent = tr('Невалиден или вече използван код', 'Invalid or already used code');
         }
       }catch(e){
         msg.className = 'promoMsg bad';
-        msg.textContent = 'Грешка при връзка — опитай пак';
+        msg.textContent = tr('Грешка при връзка — опитай пак', 'Connection error — please try again');
       }
       applyPromoBtn.disabled = false;
       return;
@@ -804,17 +872,30 @@ function renderMain(){
       premiumStatus = getPremiumStatus();
       isPremium = premiumStatus.active;
       msg.className = 'promoMsg ok';
-      msg.textContent = `Код приет — безплатно до ${fmtDate(until)}, после 0,99 €/мес. или 9,99 €/год.`;
+      msg.textContent = promoOkText(until);
       renderAll();
     } else {
       msg.className = 'promoMsg bad';
-      msg.textContent = 'Невалиден код';
+      msg.textContent = tr('Невалиден код', 'Invalid code');
     }
     applyPromoBtn.disabled = false;
   });
 }
 
-function renderAll(){ renderSwitcher(); renderMain(); }
+function promoOkText(until){
+  return tr(`Код приет — безплатно до ${fmtDate(until)}, после 0,99 €/мес. или 9,99 €/год.`, `Code accepted — free until ${fmtDate(until)}, then €0.99/mo. or €9.99/yr.`);
+}
+
+function renderAll(){ renderLangSwitch(); renderSwitcher(); renderMain(); }
+
+// Превключвател на езика горе вдясно
+function renderLangSwitch(){
+  document.getElementById('brandName').textContent = tr('Моят автомобил', 'My Car');
+  document.title = tr('Моят автомобил — проследяване', 'My Car — tracker');
+  const box = document.getElementById('langSwitch');
+  box.innerHTML = LANGS.map(l=>`<button type="button" data-lang="${l}" class="${l===LANG ? 'active' : ''}" aria-label="${l==='bg' ? 'Български' : 'English'}">${l.toUpperCase()}</button>`).join('');
+  box.querySelectorAll('[data-lang]').forEach(b=>b.addEventListener('click', ()=>{ if(b.dataset.lang !== LANG) setLang(b.dataset.lang); }));
+}
 
 function openSheet(id, carId){
   const def = defs.find(d=>d.id===id);
@@ -823,9 +904,9 @@ function openSheet(id, carId){
   document.getElementById('sheetTitle').textContent = def.title;
   document.getElementById('sheetFields').innerHTML = def.fields.map(f=>{
     if(f==='period'){
-      const opts = [3,6,12].map(m=>`<option value="${m}" ${String(rec.period||12)===String(m)?'selected':''}>${m} месеца</option>`).join('');
+      const opts = [3,6,12].map(m=>`<option value="${m}" ${String(rec.period||12)===String(m)?'selected':''}>${m} ${tr('месеца','months')}</option>`).join('');
       return `<label>${def.labels[f]}</label><select data-f="period">${opts}</select>
-        <label>Изтича на</label><div class="calcExpiry" id="calcExpiry">—</div>`;
+        <label>${tr('Изтича на','Expires on')}</label><div class="calcExpiry" id="calcExpiry">—</div>`;
     }
     if(f==='vtype'){
       const cur = rec.vtype || 'year';
@@ -840,7 +921,7 @@ function openSheet(id, carId){
     const dateInp = document.querySelector('#sheetFields [data-f="date"]');
     const periodSel = document.querySelector('#sheetFields [data-f="period"]');
     const updateExpiry = ()=>{
-      document.getElementById('calcExpiry').textContent = dateInp.value ? fmtDate(addMonths(dateInp.value, periodSel.value)) : '— (избери дата на плащане)';
+      document.getElementById('calcExpiry').textContent = dateInp.value ? fmtDate(addMonths(dateInp.value, periodSel.value)) : tr('— (избери дата на плащане)', '— (pick the payment date)');
     };
     dateInp.addEventListener('input', updateExpiry);
     periodSel.addEventListener('change', updateExpiry);
@@ -848,11 +929,11 @@ function openSheet(id, carId){
   }
   if(def.mode==='vignette'){
     // Крайната дата се смята сама от вида и началото на валидност
-    document.getElementById('sheetFields').insertAdjacentHTML('beforeend', `<label>Изтича на</label><div class="calcExpiry" id="calcExpiry">—</div>`);
+    document.getElementById('sheetFields').insertAdjacentHTML('beforeend', `<label>${tr('Изтича на','Expires on')}</label><div class="calcExpiry" id="calcExpiry">—</div>`);
     const dateInp = document.querySelector('#sheetFields [data-f="date"]');
     const typeSel = document.querySelector('#sheetFields [data-f="vtype"]');
     const updateExpiry = ()=>{
-      document.getElementById('calcExpiry').textContent = dateInp.value ? fmtDate(vignetteExpiry(dateInp.value, typeSel.value)) : '— (избери начало на валидност)';
+      document.getElementById('calcExpiry').textContent = dateInp.value ? fmtDate(vignetteExpiry(dateInp.value, typeSel.value)) : tr('— (избери начало на валидност)', '— (pick the start date)');
     };
     dateInp.addEventListener('input', updateExpiry);
     typeSel.addEventListener('change', updateExpiry);
@@ -874,7 +955,7 @@ document.getElementById('saveBtn').addEventListener('click', ()=>{
   if(editing==='__newcar'){
     const id = 'car'+Date.now();
     const type = vals.type === 'moto' ? 'moto' : 'car';
-    cars.push({id, type, name: vals.name || (type==='moto' ? 'Нов мотор' : 'Нова кола'), km: parseInt(vals.km,10)||0});
+    cars.push({id, type, name: vals.name || (type==='moto' ? tr('Нов мотор','New motorcycle') : tr('Нова кола','New car')), km: parseInt(vals.km,10)||0});
     saveCars();
     activeId = id; saveActive();
     renderAll();
@@ -906,19 +987,19 @@ function openRenew(id, carId){
   const partner = renewPartner(id);
   const t = RENEW_TEXTS[id];
   logRenewClick(id, 'open', partner);
-  const expiry = s.expiry ? `<div class="renewExpiry">Сегашната изтича на ${fmtDate(s.expiry)}</div>` : '';
+  const expiry = s.expiry ? `<div class="renewExpiry">${tr('Сегашната изтича на','Current one expires on')} ${fmtDate(s.expiry)}</div>` : '';
   let body;
   if(partner){
     body = `${expiry}
       <p class="renewText">${t.about(escapeHtml(partner.name))}</p>
-      <button class="renewGo" type="button" id="renewGoBtn">${partner.demo ? t.go : 'Продължи към ' + escapeHtml(partner.name)} →</button>
-      <div class="renewNote" id="renewNote">Партньорска връзка. ${t.note}</div>
+      <button class="renewGo" type="button" id="renewGoBtn">${partner.demo ? t.go : tr('Продължи към ','Continue to ') + escapeHtml(partner.name)} →</button>
+      <div class="renewNote" id="renewNote">${tr('Партньорска връзка.','Partner link.')} ${t.note}</div>
       <a class="renewLink" id="renewDoneLink">${t.done}</a>
-      <a class="renewLink" id="renewCloseLink">Затвори</a>`;
+      <a class="renewLink" id="renewCloseLink">${tr('Затвори','Close')}</a>`;
   } else {
     body = `${expiry}
       <p class="renewText">${t.soon}</p>
-      <button class="renewGo" type="button" id="renewCloseBtn">Добре</button>
+      <button class="renewGo" type="button" id="renewCloseBtn">${tr('Добре','OK')}</button>
       <a class="renewLink" id="renewDoneLink">${t.done}</a>`;
   }
   document.getElementById('renewTitle').textContent = RENEW_TITLES[id];
@@ -930,7 +1011,7 @@ function openRenew(id, carId){
   if(goBtn) goBtn.addEventListener('click', ()=>{
     if(partner.demo){
       if(!document.getElementById('renewDemoNote')){
-        document.getElementById('renewNote').insertAdjacentHTML('afterend', '<div class="renewNote" id="renewDemoNote"><b style="color:var(--amber);">Демо:</b> тук клиентът отива на вашия сайт с код PARKBOOK в линка, за да се отчете продажбата.<a class="renewLink" id="renewDemoAuto">Виж автоматичното обновяване, когато ни върнете клиента след плащане →</a><a class="renewLink" id="renewDemoBack">Без връщане: какво пита приложението →</a></div>');
+        document.getElementById('renewNote').insertAdjacentHTML('afterend', `<div class="renewNote" id="renewDemoNote"><b style="color:var(--amber);">${tr('Демо:','Demo:')}</b> ${tr('тук клиентът отива на вашия сайт с код PARKBOOK в линка, за да се отчете продажбата.','here the customer goes to your website with the PARKBOOK code in the link, so the sale is attributed.')}<a class="renewLink" id="renewDemoAuto">${tr('Виж автоматичното обновяване, когато ни върнете клиента след плащане →','See the automatic update when you send the customer back after payment →')}</a><a class="renewLink" id="renewDemoBack">${tr('Без връщане: какво пита приложението →','Without the return: what the app asks →')}</a></div>`);
         document.getElementById('renewDemoBack').addEventListener('click', ()=>openPaidConfirm({carId, id, partner: partner.name, at: Date.now()}));
         document.getElementById('renewDemoAuto').addEventListener('click', ()=>{
           // Симулира адреса за връщане, който партньорът би отворил след платена полица
@@ -966,7 +1047,7 @@ document.getElementById('renewOverlay').addEventListener('click', e=>{ if(e.targ
 const PENDING_KEY = 'car-tracker-renew-pending-v1';
 const PENDING_MAX_MS = 7 * 86400000;   // след седмица спираме да питаме
 const PENDING_MIN_MS = 15000;          // не питаме, ако се е върнал веднага (не е стигнал до плащане)
-const PAID_TITLES = {civil:'Купи ли новата гражданска?', vignette:'Купи ли новата винетка?', casco:'Поднови ли каското?'};
+const PAID_TITLES = {civil:tr('Купи ли новата гражданска?','Did you buy the new insurance?'), vignette:tr('Купи ли новата винетка?','Did you buy the new vignette?'), casco:tr('Поднови ли каското?','Did you renew your casco?')};
 function getPending(){ try{ return JSON.parse(localStorage.getItem(PENDING_KEY)) || null; }catch(e){ return null; } }
 function setPending(p){ try{ p ? localStorage.setItem(PENDING_KEY, JSON.stringify(p)) : localStorage.removeItem(PENDING_KEY); }catch(e){} }
 
@@ -988,15 +1069,15 @@ function openPaidConfirm(p){
   const data = getData(car.id);
   const next = renewedRecord(p.id, data[p.id]);
   const nextS = statusFor(def, {[p.id]: next});
-  const period = p.id==='civil' ? ` (${next.period} мес.)` : p.id==='vignette' ? ` (${(VIGNETTE_TYPES[next.vtype]||'').toLowerCase()})` : '';
+  const period = p.id==='civil' ? ` (${next.period} ${tr('мес.','mo.')})` : p.id==='vignette' ? ` (${(VIGNETTE_TYPES[next.vtype]||'').toLowerCase()})` : '';
   document.getElementById('renewTitle').textContent = PAID_TITLES[p.id];
   document.getElementById('renewBody').innerHTML = `
-    <p class="renewText">Ако плащането при <b>${escapeHtml(p.partner || 'партньора')}</b> е минало, обновяваме сроковете вместо теб${cars.length > 1 ? ` за <b>${escapeHtml(car.name)}</b>` : ''}:</p>
-    <div class="renewExpiry" style="margin:0 0 14px; color:var(--ink); font-weight:600;">Нова: ${fmtDate(next.date)} → ${fmtDate(nextS.expiry)}${period}</div>
-    <button class="renewGo" type="button" id="paidYesBtn">✅ Да, платих — обнови</button>
-    <a class="renewLink" id="paidOtherLink">Платих, но за друг срок — ще го въведа</a>
-    <a class="renewLink" id="paidLaterLink">Още не съм платил</a>
-    <a class="renewLink" id="paidNoLink">Не купих</a>`;
+    <p class="renewText">${tr(`Ако плащането при <b>${escapeHtml(p.partner || 'партньора')}</b> е минало, обновяваме сроковете вместо теб`, `If your payment with <b>${escapeHtml(p.partner || 'the partner')}</b> went through, we update the dates for you`)}${cars.length > 1 ? ` ${tr('за','for')} <b>${escapeHtml(car.name)}</b>` : ''}:</p>
+    <div class="renewExpiry" style="margin:0 0 14px; color:var(--ink); font-weight:600;">${tr('Нова','New')}: ${fmtDate(next.date)} → ${fmtDate(nextS.expiry)}${period}</div>
+    <button class="renewGo" type="button" id="paidYesBtn">✅ ${tr('Да, платих — обнови','Yes, I paid — update')}</button>
+    <a class="renewLink" id="paidOtherLink">${tr('Платих, но за друг срок — ще го въведа','I paid for a different term — I will enter it')}</a>
+    <a class="renewLink" id="paidLaterLink">${tr('Още не съм платил','Not paid yet')}</a>
+    <a class="renewLink" id="paidNoLink">${tr('Не купих','I did not buy')}</a>`;
   const ov = document.getElementById('renewOverlay');
   const close = ()=>{ ov.style.display = 'none'; };
   ov.style.display = 'flex';
@@ -1051,7 +1132,7 @@ function applyRenewal(car, id, rec, partnerName){
   setPending(null);
   activeId = car.id; saveActive();
   const s = statusFor(defs.find(d=>d.id===id), {[id]: rec});
-  showToast(`✅ ${SHORT_NAMES[id]} е обновена автоматично — важи до ${fmtDate(s.expiry)}`);
+  showToast(tr(`✅ Обновено автоматично: ${SHORT_NAMES[id].toLowerCase()} — важи до ${fmtDate(s.expiry)}`, `✅ Updated automatically: ${SHORT_NAMES[id].toLowerCase()} — valid until ${fmtDate(s.expiry)}`));
 }
 
 // Сигнал от партньора (postback): ако клиентът не се е върнал през линка, питаме сървъра
@@ -1098,8 +1179,9 @@ document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState 
 function escapeHtml(s){
   return String(s ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
-if(DEMO_MODE) document.body.insertAdjacentHTML('beforeend', '<div class="demoTag">ДЕМО</div>');
+if(DEMO_MODE) document.body.insertAdjacentHTML('beforeend', `<div class="demoTag">${tr('ДЕМО','DEMO')}</div>`);
 
+document.querySelectorAll('[data-t]').forEach(el=>{ el.textContent = {cancel:tr('Отказ','Cancel'), save:tr('Запази','Save')}[el.dataset.t]; });
 applyReturnFromPartner();
 renderAll();
 checkPendingRenew();
