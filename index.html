@@ -203,7 +203,8 @@ function motoSeasonTip(){
 // ГО се купува от застрахователен брокер, винетката — от оторизиран продавач на е-винетки,
 // затова всеки продукт има свой партньор. Докато няма подписан договор, партньорът е null
 // и бутонът казва „скоро“. След договора: {name:'Име на партньора', url:'https://...?ref=PARKBOOK'}
-// autoReturn:true — партньорът ни връща клиента след плащане с датите (applyReturnFromPartner) → без въпроси.
+// autoReturn:true — партньорът ни връща клиента след плащане с датите (applyReturnFromPartner) и/или
+// праща сигнал на partner-postback (claimPostback) → без въпроси.
 // Без него приложението пита „Купи ли новата…?“ при връщане (openPaidConfirm).
 const RENEW_PARTNERS = {civil: null, vignette: null, casco: null};
 const RENEW_TEXTS = {
@@ -944,7 +945,7 @@ function openRenew(id, carId){
     logRenewClick(id, 'go', partner);
     // Запомняме, че е тръгнал да купува. Случайният cid отива в линка — партньор с autoReturn ни връща
     // клиента след плащане с него и датите на полицата (виж applyReturnFromPartner) и тогава не питаме нищо.
-    const cid = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    const cid = [...crypto.getRandomValues(new Uint8Array(12))].map(b=>b.toString(16).padStart(2,'0')).join('');   // 24 знака, не се отгатва
     setPending({carId, id, partner: partner.name, at: Date.now(), cid, auto: !!partner.autoReturn});
     let url = partner.url;
     if(partner.autoReturn){ try{ const u = new URL(partner.url); u.searchParams.set('cid', cid); url = u.toString(); }catch(e){} }
@@ -1039,14 +1040,41 @@ function applyReturnFromPartner(){
   const p = getPending();
   const car = (p && p.cid && p.cid === q.get('cid') && cars.find(c=>c.id===p.carId)) || (cars.length === 1 ? cars[0] : null);
   if(!car) return;
+  applyRenewal(car, id, rec, (p && p.partner) || 'return');
+}
+// Записва новата полица без въпроси и казва на човека докога важи
+function applyRenewal(car, id, rec, partnerName){
   const data = getData(car.id);
   data[id] = rec;
   saveData(car.id, data);
-  logRenewClick(id, 'paid', {name: (p && p.partner) || 'return'});
+  logRenewClick(id, 'paid', {name: partnerName});
   setPending(null);
   activeId = car.id; saveActive();
   const s = statusFor(defs.find(d=>d.id===id), {[id]: rec});
   showToast(`✅ ${SHORT_NAMES[id]} е обновена автоматично — важи до ${fmtDate(s.expiry)}`);
+}
+
+// Сигнал от партньора (postback): ако клиентът не се е върнал през линка, питаме сървъра
+// дали партньорът е отчел платена полица с нашия cid (backend/partner-postback.sql).
+async function claimPostback(p){
+  if(!SUPABASE_CONFIGURED || DEMO_MODE || !p.cid) return;
+  try{
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/claim_renew_postback`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', 'apikey':SUPABASE_ANON_KEY, 'Authorization':`Bearer ${SUPABASE_ANON_KEY}`},
+      body: JSON.stringify({p_cid: p.cid})
+    });
+    if(!res.ok) return;
+    const row = (await res.json())[0];
+    if(!row || row.product !== p.id) return;
+    const car = cars.find(c=>c.id===p.carId);
+    if(!car) return;
+    const rec = row.product==='civil' ? {date:row.start_date, period:String(row.months || 12)}
+              : row.product==='vignette' ? {vtype:row.vtype || 'year', date:row.start_date}
+              : {date:row.start_date, expiry:row.expiry};
+    applyRenewal(car, row.product, rec, row.partner);
+    renderAll();
+  }catch(e){}   // няма връзка — ще опитаме при следващо отваряне
 }
 function showToast(text){
   const el = document.createElement('div');
@@ -1061,7 +1089,7 @@ function checkPendingRenew(){
   if(!p) return;
   const age = Date.now() - p.at;
   if(age > PENDING_MAX_MS){ setPending(null); return; }
-  if(p.auto) return;   // партньорът ни връща датите сам — не питаме
+  if(p.auto){ claimPostback(p); return; }   // партньорът ни праща датите сам — не питаме
   if(age < PENDING_MIN_MS || (p.snoozeUntil && Date.now() < p.snoozeUntil)) return;
   if(document.getElementById('overlay').style.display === 'flex') return;   // не прекъсваме редакция
   openPaidConfirm(p);
