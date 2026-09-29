@@ -174,15 +174,29 @@ const defs = [
    labels:{date:'Дата',km:'Пробег при смяна (км)',nextKm:'Следваща смяна (км)'}},
   {id:'tires', title:'Смяна на гуми', mode:'date_soft', fields:['date','note'], premium:false,
    labels:{date:'Дата',note:'Бележка (напр. зимни / летни)'}},
+  {id:'chain', title:'Верига (смазване / смяна)', mode:'km', fields:['date','km','nextKm'], premium:false, only:'moto',
+   labels:{date:'Дата',km:'Пробег при обслужване (км)',nextKm:'Следващо обслужване (км)'}},
   {id:'civil', title:'Гражданска отговорност', mode:'date_period', fields:['date','period'], premium:true,
    labels:{date:'Дата на плащане',period:'Период'}},
-  {id:'vignette', title:'Винетка', mode:'vignette', fields:['vtype','date'], premium:true,
+  // Мотоциклетите в България не плащат е-винетка (bgtoll.bg) — затова само за коли
+  {id:'vignette', title:'Винетка', mode:'vignette', fields:['vtype','date'], premium:true, only:'car',
    labels:{vtype:'Вид',date:'Начало на валидност'}},
   {id:'inspection', title:'Годишен технически преглед', mode:'date', fields:['date','expiry'], premium:true,
    labels:{date:'Дата на преглед',expiry:'Изтича на'}},
   {id:'casco', title:'Каско', mode:'date', fields:['date','expiry'], premium:true,
    labels:{date:'Дата на плащане',expiry:'Изтича на'}}
 ];
+// Вид превозно средство: 'car' (по подразбиране — и за старите записи без вид) или 'moto'
+const VEHICLE_TYPES = {car:{label:'Кола', icon:'🚗'}, moto:{label:'Мотор', icon:'🏍️'}};
+function vehicleType(car){ return car && car.type === 'moto' ? 'moto' : 'car'; }
+function defsFor(car){ const t = vehicleType(car); return defs.filter(d=>!d.only || d.only===t); }
+// Сезонна бележка за мотора: пролетта — проверка преди сезона, зимата — акумулаторът
+function motoSeasonTip(){
+  const m = now.getMonth() + 1;
+  if(m >= 3 && m <= 4) return 'Пролетта идва 🏍️ Провери акумулатора, веригата, гумите и ГО преди сезона.';
+  if(m >= 11 || m <= 2) return 'Зимата 🔋 Зареждай акумулатора веднъж месечно, за да те чака готов напролет.';
+  return '';
+}
 
 // ==== Бутон „Поднови“ към партньор ====
 // ГО се купува от застрахователен брокер, винетката — от оторизиран продавач на е-винетки,
@@ -432,7 +446,7 @@ function statusFor(def, data, currentKm){
 }
 
 // ==== Лентата със статуса най-горе — казва КАКВО наближава, а когато всичко е наред, е приятелска ====
-const SHORT_NAMES = {oil:'Маслото', tires:'Гумите', civil:'Гражданската', vignette:'Винетката', inspection:'Прегледът', casco:'Каското'};
+const SHORT_NAMES = {oil:'Маслото', tires:'Гумите', chain:'Веригата', civil:'Гражданската', vignette:'Винетката', inspection:'Прегледът', casco:'Каското'};
 // ==== Репликите на талисмана — приятелски и леко нахален тон (като Duolingo), никога обиден ====
 // {x} се заменя с най-спешното, напр. „гражданската изтича след 4 дни“. Репликата на деня се сменя всеки ден,
 // а при натискане на колата излиза друга (от същото настроение или от TAP_LINES).
@@ -547,11 +561,12 @@ function mascotHtml(summaryCls){
   </svg></button>`;
 }
 
-function buildSummary(defsList, data, km){
+function buildSummary(defsList, data, km, type){
   const docs = defsList.filter(def=>SUMMARY_IDS.includes(def.id));
+  const docNames = type === 'moto' ? 'гражданска, преглед и каско' : 'гражданска, винетка, преглед и каско';
   if(!docs.length){
     // Безплатна версия — документите са заключени
-    return {cls:'ok', main:mascotLine('happy'), sub:'Следи гражданска, винетка, преглед и каско с премиум — ще ти казваме кога изтичат.'};
+    return {cls:'ok', main:mascotLine('happy'), sub:`Следи ${docNames} с премиум — ще ти казваме кога изтичат.`};
   }
   const entries = docs.map(def=>({def, s:statusFor(def, data, km)}));
   const tracked = entries.filter(e=>!e.s.missing && e.s.days !== undefined).sort((a,b)=>a.s.days-b.s.days);
@@ -560,7 +575,7 @@ function buildSummary(defsList, data, km){
   const missing = entries.filter(e=>e.s.missing).map(e=>SHORT_NAMES[e.def.id] || e.def.title);
 
   if(!tracked.length){
-    return {cls:'none', main:mascotLine('sleepy'), sub:'Въведи датите за гражданска, винетка, преглед и каско — ще ти казваме кога наближават.'};
+    return {cls:'none', main:mascotLine('sleepy'), sub:`Въведи датите за ${docNames} — ще ти казваме кога наближават.`};
   }
   if(over.length || soon.length){
     const urgent = [...over, ...soon];
@@ -575,6 +590,7 @@ function buildSummary(defsList, data, km){
   const when = `${SHORT_NAMES[next.def.id]} на ${fmtDate(next.s.expiry)} (след ${next.s.days} дни)`;
   let sub = `Следва: ${when}`;
   if(missing.length) sub += ` · Попълни: ${missing.join(', ').toLowerCase()}`;
+  if(type === 'moto' && motoSeasonTip()) sub += `<br>${motoSeasonTip()}`;
   return {cls:'ok', main:mascotLine('happy'), sub};
 }
 
@@ -600,12 +616,12 @@ function detailFor(def, data){
 
 function renderSwitcher(){
   const box = document.getElementById('carSwitcher');
-  const pills = cars.map(c=>`<div class="carPill ${c.id===activeId?'active':''}" data-id="${c.id}">${c.name}</div>`).join('');
+  const pills = cars.map(c=>`<div class="carPill ${c.id===activeId?'active':''}" data-id="${c.id}">${vehicleType(c)==='moto' ? '🏍️ ' : ''}${c.name}</div>`).join('');
   const carLimit = isPremium ? MAX_CARS_PREMIUM : 1;
   const canAdd = cars.length < carLimit;
   const addPill = canAdd
-    ? `<div class="carPill addNew" id="addCarPill">+ Кола</div>`
-    : `<div class="carPill addNew" id="addCarPill" style="opacity:0.5;">🔒 + Кола</div>`;
+    ? `<div class="carPill addNew" id="addCarPill">+ Добави</div>`
+    : `<div class="carPill addNew" id="addCarPill" style="opacity:0.5;">🔒 + Добави</div>`;
   box.innerHTML = pills + addPill;
   box.querySelectorAll('.carPill[data-id]').forEach(el=>{
     el.addEventListener('click', ()=>{ activeId = el.dataset.id; saveActive(); renderAll(); });
@@ -621,16 +637,18 @@ function renderSwitcher(){
         box.parentNode.insertBefore(note, box.nextSibling);
       }
       note.textContent = isPremium
-        ? `Достигнат е максимумът от ${MAX_CARS_PREMIUM} коли.`
-        : 'Втора кола е достъпна само с абонамент — 9,99 €/година.';
+        ? `Достигнат е максимумът от ${MAX_CARS_PREMIUM} превозни средства.`
+        : 'Втора кола или мотор е достъпна само с абонамент — 9,99 €/година.';
     }
   });
 }
 
 function openAddCar(){
-  document.getElementById('sheetTitle').textContent = 'Добави кола';
+  document.getElementById('sheetTitle').textContent = 'Добави кола или мотор';
+  const typeOpts = Object.entries(VEHICLE_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('');
   document.getElementById('sheetFields').innerHTML = `
-    <label>Марка и модел</label><input data-f="name" placeholder="Напр. VW Golf VII, 2016">
+    <label>Вид</label><select data-f="type">${typeOpts}</select>
+    <label>Марка и модел</label><input data-f="name" placeholder="Напр. VW Golf VII, 2016 или Honda CB500F">
     <label>Текущ пробег (км)</label><input data-f="km" type="number" placeholder="142300">
   `;
   document.getElementById('overlay').style.display='flex';
@@ -640,7 +658,7 @@ function openAddCar(){
 function renderMain(){
   const box = document.getElementById('mainArea');
   if(!cars.length){
-    box.innerHTML = `<div class="emptyState"><div class="big">🚗</div><p>Все още нямаш добавена кола.</p><button class="save" id="firstCarBtn" style="width:auto;padding:11px 20px;">Добави кола</button></div>`;
+    box.innerHTML = `<div class="emptyState"><div class="big">🚗</div><p>Все още нямаш добавена кола или мотор.</p><button class="save" id="firstCarBtn" style="width:auto;padding:11px 20px;">Добави</button></div>`;
     document.getElementById('firstCarBtn').addEventListener('click', openAddCar);
     return;
   }
@@ -654,10 +672,11 @@ function renderMain(){
   const premiumBanner = (isPremium && !premiumStatus.permanent)
     ? `<div class="premiumBanner">Премиум достъп (от промо код) — остават ${premiumStatus.daysLeft} дни, до ${fmtDate(premiumStatus.until)}</div>`
     : '';
-  const unlocked = defs.filter(d=>!d.premium || fullAccess);
-  const locked = defs.filter(d=>d.premium && !fullAccess);
+  const carDefs = defsFor(car);
+  const unlocked = carDefs.filter(d=>!d.premium || fullAccess);
+  const locked = carDefs.filter(d=>d.premium && !fullAccess);
 
-  const summary = buildSummary(unlocked, data, car.km);
+  const summary = buildSummary(unlocked, data, car.km, vehicleType(car));
 
   const itemsHtml = unlocked.map(def=>{
     const s = statusFor(def, data, car.km);
@@ -695,7 +714,7 @@ function renderMain(){
   }
 
   box.innerHTML = `
-    <div class="carcard"><h2>${car.name}</h2><div class="sub">Текущ пробег: ${(car.km||0).toLocaleString('bg-BG')} км</div></div>
+    <div class="carcard"><h2>${VEHICLE_TYPES[vehicleType(car)].icon} ${car.name}</h2><div class="sub">Текущ пробег: ${(car.km||0).toLocaleString('bg-BG')} км</div></div>
     ${premiumBanner}
     <div class="summary withMascot ${summary.cls}">${mascotHtml(summary.cls)}<div><div class="smain">${summary.main}</div><div class="ssub">${summary.sub}</div>${summary.renewId ? `<button class="renewBtn hot" type="button" data-renew="${summary.renewId}">${RENEW_LABELS[summary.renewId]} →</button>` : ''}</div></div>
     <div id="items">${itemsHtml}</div>
@@ -841,7 +860,8 @@ document.getElementById('saveBtn').addEventListener('click', ()=>{
 
   if(editing==='__newcar'){
     const id = 'car'+Date.now();
-    cars.push({id, name: vals.name || 'Нова кола', km: parseInt(vals.km,10)||0});
+    const type = vals.type === 'moto' ? 'moto' : 'car';
+    cars.push({id, type, name: vals.name || (type==='moto' ? 'Нов мотор' : 'Нова кола'), km: parseInt(vals.km,10)||0});
     saveCars();
     activeId = id; saveActive();
     renderAll();
