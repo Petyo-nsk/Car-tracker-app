@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
       // Натискания на „Поднови ГО“ / „Купи винетка“ — общо и за последните 30 дни
       const since = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
       const renew = await Promise.all(
-        [['civil', 'open'], ['civil', 'go'], ['vignette', 'open'], ['vignette', 'go']].map(async ([product, event]) => {
+        ['civil', 'vignette', 'casco'].flatMap((p) => ['open', 'go', 'paid'].map((ev) => [p, ev])).map(async ([product, event]) => {
           const base = () => supabase.from('renew_clicks').select('id', { count: 'exact', head: true })
             .eq('product', product).eq('event', event)
           const { count: total } = await base()

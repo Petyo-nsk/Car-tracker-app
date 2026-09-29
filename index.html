@@ -129,6 +129,7 @@ button{border:none; border-radius:10px; padding:12px; font-weight:700; font-size
 .renewExpiry{font-size:13px; color:var(--muted); margin:-6px 0 12px;}
 .renewGo{width:100%; background:var(--amber); color:#1a1305;}
 .renewNote{font-size:11.5px; color:var(--muted); line-height:1.5; margin-top:12px;}
+.toast{position:fixed; left:16px; right:16px; bottom:24px; z-index:50; background:var(--panel2); color:var(--ink); border:1px solid var(--green); border-radius:12px; padding:12px 16px; font-size:13.5px; font-weight:600; text-align:center; box-shadow:0 8px 24px rgba(0,0,0,.35);}
 .renewLink{display:block; text-align:center; margin-top:12px; font-size:12.5px; color:var(--muted); text-decoration:underline; cursor:pointer;}
 .demoTag{position:fixed; top:calc(8px + env(safe-area-inset-top,0px)); right:8px; background:var(--amber); color:#1a1305; font-size:10.5px; font-weight:700; padding:3px 8px; border-radius:100px; z-index:20;}
 </style>
@@ -202,7 +203,9 @@ function motoSeasonTip(){
 // ГО се купува от застрахователен брокер, винетката — от оторизиран продавач на е-винетки,
 // затова всеки продукт има свой партньор. Докато няма подписан договор, партньорът е null
 // и бутонът казва „скоро“. След договора: {name:'Име на партньора', url:'https://...?ref=PARKBOOK'}
-const RENEW_PARTNERS = {civil: null, vignette: null};
+// autoReturn:true — партньорът ни връща клиента след плащане с датите (applyReturnFromPartner) → без въпроси.
+// Без него приложението пита „Купи ли новата…?“ при връщане (openPaidConfirm).
+const RENEW_PARTNERS = {civil: null, vignette: null, casco: null};
 const RENEW_TEXTS = {
   civil: {
     about: name => `Купи гражданска отговорност онлайн от <b>${name}</b> — лицензиран застрахователен брокер, наш партньор. Цената е същата като директно при тях.`,
@@ -219,10 +222,19 @@ const RENEW_TEXTS = {
     done: 'Вече я купих — въведи новата дата',
     soon: 'Скоро ще можеш да купуваш винетка направо оттук — от проверен партньор.',
     demoName: 'Вашата компания'
+  },
+  // Каско има и за коли, и за мотори — партньор е застраховател или брокер
+  casco: {
+    about: name => `Поднови каското онлайн при <b>${name}</b> — наш партньор. Сравни покритието и цената, преди сегашното да изтече.`,
+    go: 'Поднови при партньора',
+    note: 'PARKBOOK не продава застраховки — само те препраща и може да получи комисиона от партньора.',
+    done: 'Вече го поднових — въведи новата дата',
+    soon: 'Скоро ще можеш да подновяваш каското направо оттук — при проверен партньор.',
+    demoName: 'Вашата компания'
   }
 };
-const RENEW_LABELS = {civil:'Поднови ГО', vignette:'Купи винетка'};
-const RENEW_TITLES = {civil:'Поднови гражданската', vignette:'Купи винетка'};
+const RENEW_LABELS = {civil:'Поднови ГО', vignette:'Купи винетка', casco:'Поднови каско'};
+const RENEW_TITLES = {civil:'Поднови гражданската', vignette:'Купи винетка', casco:'Поднови каското'};
 // Демо за срещи с брокери: отвори приложението с ?demo — показва как изглежда с партньор.
 // Остава включено до затваряне на раздела.
 let DEMO_MODE = false;
@@ -916,11 +928,27 @@ function openRenew(id, carId){
   const goBtn = document.getElementById('renewGoBtn');
   if(goBtn) goBtn.addEventListener('click', ()=>{
     if(partner.demo){
-      if(!document.getElementById('renewDemoNote')) document.getElementById('renewNote').insertAdjacentHTML('afterend', '<div class="renewNote" id="renewDemoNote"><b style="color:var(--amber);">Демо:</b> тук клиентът отива на вашия сайт с код PARKBOOK в линка, за да се отчете продажбата.</div>');
+      if(!document.getElementById('renewDemoNote')){
+        document.getElementById('renewNote').insertAdjacentHTML('afterend', '<div class="renewNote" id="renewDemoNote"><b style="color:var(--amber);">Демо:</b> тук клиентът отива на вашия сайт с код PARKBOOK в линка, за да се отчете продажбата.<a class="renewLink" id="renewDemoAuto">Виж автоматичното обновяване, когато ни върнете клиента след плащане →</a><a class="renewLink" id="renewDemoBack">Без връщане: какво пита приложението →</a></div>');
+        document.getElementById('renewDemoBack').addEventListener('click', ()=>openPaidConfirm({carId, id, partner: partner.name, at: Date.now()}));
+        document.getElementById('renewDemoAuto').addEventListener('click', ()=>{
+          // Симулира адреса за връщане, който партньорът би отворил след платена полица
+          const rec = renewedRecord(id, getData(carId)[id]);
+          setPending({carId, id, partner: partner.name, at: Date.now(), cid: 'demo', auto: true});
+          const extra = id==='civil' ? `months=${rec.period}` : id==='vignette' ? `vtype=${rec.vtype}` : `expiry=${rec.expiry}`;
+          location.href = `${location.pathname}?renewed=${id}&cid=demo&start=${rec.date}&${extra}`;
+        });
+      }
       return;
     }
     logRenewClick(id, 'go', partner);
-    window.open(partner.url, '_blank', 'noopener');
+    // Запомняме, че е тръгнал да купува. Случайният cid отива в линка — партньор с autoReturn ни връща
+    // клиента след плащане с него и датите на полицата (виж applyReturnFromPartner) и тогава не питаме нищо.
+    const cid = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    setPending({carId, id, partner: partner.name, at: Date.now(), cid, auto: !!partner.autoReturn});
+    let url = partner.url;
+    if(partner.autoReturn){ try{ const u = new URL(partner.url); u.searchParams.set('cid', cid); url = u.toString(); }catch(e){} }
+    window.open(url, '_blank', 'noopener');
   });
   const closeBtn = document.getElementById('renewCloseBtn');
   if(closeBtn) closeBtn.addEventListener('click', close);
@@ -929,12 +957,124 @@ function openRenew(id, carId){
   document.getElementById('renewDoneLink').addEventListener('click', ()=>{ close(); openSheet(id, carId); });
 }
 document.getElementById('renewOverlay').addEventListener('click', e=>{ if(e.target.id==='renewOverlay') e.target.style.display='none'; });
+
+// ==== Потвърдено плащане → сроковете се обновяват сами ====
+// След „Продължи към брокера“ пазим какво е тръгнал да купува. Когато се върне в приложението,
+// питаме „Мина ли плащането?“ — при „Да“ новата полица се записва сама, без ръчно въвеждане на дати.
+// По-късно: ако брокерът ни връща датата (линк за връщане / сигнал), този въпрос отпада.
+const PENDING_KEY = 'car-tracker-renew-pending-v1';
+const PENDING_MAX_MS = 7 * 86400000;   // след седмица спираме да питаме
+const PENDING_MIN_MS = 15000;          // не питаме, ако се е върнал веднага (не е стигнал до плащане)
+const PAID_TITLES = {civil:'Купи ли новата гражданска?', vignette:'Купи ли новата винетка?', casco:'Поднови ли каското?'};
+function getPending(){ try{ return JSON.parse(localStorage.getItem(PENDING_KEY)) || null; }catch(e){ return null; } }
+function setPending(p){ try{ p ? localStorage.setItem(PENDING_KEY, JSON.stringify(p)) : localStorage.removeItem(PENDING_KEY); }catch(e){} }
+
+// Новата полица започва, когато изтича старата (ако още е валидна), иначе от днес.
+// Винетката пазим като последен валиден ден, затова новата почва на следващия.
+function renewedRecord(id, rec){
+  const t = todayISO();
+  const old = statusFor(defs.find(d=>d.id===id), {[id]: rec || {}});
+  const start = (old.expiry && old.expiry >= t) ? (id==='vignette' ? addDays(old.expiry, 1) : old.expiry) : t;
+  if(id==='civil') return {date:start, period: (rec && rec.period) || '12'};
+  if(id==='vignette') return {vtype: (rec && rec.vtype) || 'year', date:start};
+  return {date:start, expiry:addMonths(start, 12)};   // каско — за година
+}
+
+function openPaidConfirm(p){
+  const car = cars.find(c=>c.id===p.carId);
+  const def = defs.find(d=>d.id===p.id);
+  if(!car || !def){ setPending(null); return; }
+  const data = getData(car.id);
+  const next = renewedRecord(p.id, data[p.id]);
+  const nextS = statusFor(def, {[p.id]: next});
+  const period = p.id==='civil' ? ` (${next.period} мес.)` : p.id==='vignette' ? ` (${(VIGNETTE_TYPES[next.vtype]||'').toLowerCase()})` : '';
+  document.getElementById('renewTitle').textContent = PAID_TITLES[p.id];
+  document.getElementById('renewBody').innerHTML = `
+    <p class="renewText">Ако плащането при <b>${escapeHtml(p.partner || 'партньора')}</b> е минало, обновяваме сроковете вместо теб${cars.length > 1 ? ` за <b>${escapeHtml(car.name)}</b>` : ''}:</p>
+    <div class="renewExpiry" style="margin:0 0 14px; color:var(--ink); font-weight:600;">Нова: ${fmtDate(next.date)} → ${fmtDate(nextS.expiry)}${period}</div>
+    <button class="renewGo" type="button" id="paidYesBtn">✅ Да, платих — обнови</button>
+    <a class="renewLink" id="paidOtherLink">Платих, но за друг срок — ще го въведа</a>
+    <a class="renewLink" id="paidLaterLink">Още не съм платил</a>
+    <a class="renewLink" id="paidNoLink">Не купих</a>`;
+  const ov = document.getElementById('renewOverlay');
+  const close = ()=>{ ov.style.display = 'none'; };
+  ov.style.display = 'flex';
+  document.getElementById('paidYesBtn').addEventListener('click', ()=>{
+    data[p.id] = next;
+    saveData(car.id, data);
+    logRenewClick(p.id, 'paid', {name: p.partner});
+    setPending(null);
+    activeId = car.id; saveActive();
+    close(); renderAll();
+  });
+  document.getElementById('paidOtherLink').addEventListener('click', ()=>{
+    logRenewClick(p.id, 'paid', {name: p.partner});
+    setPending(null); close(); activeId = car.id; saveActive(); renderAll(); openSheet(p.id, car.id);
+  });
+  // „Още не“ — питаме пак при следващо отваряне след няколко часа
+  document.getElementById('paidLaterLink').addEventListener('click', ()=>{ setPending({...p, snoozeUntil: Date.now() + 6*3600000}); close(); });
+  document.getElementById('paidNoLink').addEventListener('click', ()=>{ setPending(null); close(); });
+}
+
+// ==== Автоматично, без въпроси: партньорът ни връща клиента след плащане ====
+// Адрес за връщане, който даваме на партньора (той попълва стойностите от платената полица):
+//   ГО:      https://petyo-nsk.github.io/Car-tracker-app/?renewed=civil&cid={cid}&start=ГГГГ-ММ-ДД&months=12
+//   Винетка: ...?renewed=vignette&cid={cid}&start=ГГГГ-ММ-ДД&vtype=year   (day/weekend/week/month/quarter/year)
+//   Каско:   ...?renewed=casco&cid={cid}&start=ГГГГ-ММ-ДД&expiry=ГГГГ-ММ-ДД
+// cid е номерът, който сме сложили в линка към него — по него знаем за коя кола е.
+function applyReturnFromPartner(){
+  let q;
+  try{ q = new URLSearchParams(location.search); }catch(e){ return; }
+  const id = q.get('renewed');
+  if(!id || !RENEW_TEXTS[id]) return;
+  try{ history.replaceState(null, '', location.pathname); }catch(e){}   // махаме параметрите — да не се приложи пак при презареждане
+  const isDate = v => /^\d{4}-\d{2}-\d{2}$/.test(v || '');
+  const start = q.get('start');
+  if(!isDate(start)) return;
+  let rec;
+  if(id==='civil'){ const m = parseInt(q.get('months'), 10); if(!(m >= 1 && m <= 12)) return; rec = {date:start, period:String(m)}; }
+  else if(id==='vignette'){ const v = q.get('vtype'); if(!VIGNETTE_TYPES[v]) return; rec = {vtype:v, date:start}; }
+  else { const e = q.get('expiry'); if(!isDate(e)) return; rec = {date:start, expiry:e}; }
+  // Коя кола: по cid от линка; ако няма съвпадение, но колата е само една — нея
+  const p = getPending();
+  const car = (p && p.cid && p.cid === q.get('cid') && cars.find(c=>c.id===p.carId)) || (cars.length === 1 ? cars[0] : null);
+  if(!car) return;
+  const data = getData(car.id);
+  data[id] = rec;
+  saveData(car.id, data);
+  logRenewClick(id, 'paid', {name: (p && p.partner) || 'return'});
+  setPending(null);
+  activeId = car.id; saveActive();
+  const s = statusFor(defs.find(d=>d.id===id), {[id]: rec});
+  showToast(`✅ ${SHORT_NAMES[id]} е обновена автоматично — важи до ${fmtDate(s.expiry)}`);
+}
+function showToast(text){
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = text;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 5000);
+}
+
+function checkPendingRenew(){
+  const p = getPending();
+  if(!p) return;
+  const age = Date.now() - p.at;
+  if(age > PENDING_MAX_MS){ setPending(null); return; }
+  if(p.auto) return;   // партньорът ни връща датите сам — не питаме
+  if(age < PENDING_MIN_MS || (p.snoozeUntil && Date.now() < p.snoozeUntil)) return;
+  if(document.getElementById('overlay').style.display === 'flex') return;   // не прекъсваме редакция
+  openPaidConfirm(p);
+}
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState === 'visible') checkPendingRenew(); });
 function escapeHtml(s){
   return String(s ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 if(DEMO_MODE) document.body.insertAdjacentHTML('beforeend', '<div class="demoTag">ДЕМО</div>');
 
+applyReturnFromPartner();
 renderAll();
+checkPendingRenew();
 
 // PWA — позволява „Добави към началния екран“ и работа без интернет
 if('serviceWorker' in navigator){
