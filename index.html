@@ -148,6 +148,12 @@ button{border:none; border-radius:10px; padding:12px; font-weight:700; font-size
 .emptyState p{color:var(--muted); font-size:13.5px; margin:0 0 16px;}
 .renewBtn{display:inline-block; margin-top:10px; background:transparent; color:var(--amber); border:1px solid var(--amber); border-radius:100px; padding:7px 14px; font-size:12.5px; font-weight:700;}
 .renewBtn.hot{background:var(--amber); color:#1a1305;}
+.partsRow{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;}
+.partsBtn{background:transparent; color:var(--ink); border:1px solid var(--line); border-radius:100px; padding:6px 12px; font-size:12px; font-weight:600;}
+.partsBtn.premium{border-color:var(--amber); color:var(--amber);}
+.partsDisc{font-size:12px; color:var(--amber); margin-top:6px;}
+.partsNote{font-size:10.5px; color:var(--muted); margin-top:5px;}
+.partsInSheet{margin-top:6px;}
 .summary .renewBtn{margin-top:8px;}
 .renewText{font-size:13.5px; line-height:1.5; margin:0 0 12px;}
 .renewExpiry{font-size:13px; color:var(--muted); margin:-6px 0 12px;}
@@ -794,10 +800,13 @@ function renderMain(){
     const hot = !s.missing && (s.cls==='over' || s.cls==='soon');
     const renew = RENEW_LABELS[def.id]
       ? `<button class="renewBtn ${hot ? 'hot' : ''}" type="button" data-renew="${def.id}">${RENEW_LABELS[def.id]} →</button>` : '';
+    // Предложения от магазини — за всички; за премиум изглеждат като привилегия („Премиум оферта“ + отстъпка, ако има)
+    const offers = partsOffersFor(def.id, car);
+    const parts = offers.length ? partsHtml(offers) : '';
     return `<div class="item" data-id="${def.id}">
       <div class="item-top"><div class="item-title">${def.title}</div><div class="status ${s.cls}">${s.label}</div></div>
       <div class="item-detail">${detailFor(def, data)}</div>
-      ${renew}
+      ${renew}${parts}
     </div>`;
   }).join('');
 
@@ -834,6 +843,9 @@ function renderMain(){
     ${unlockBlock}
   `;
 
+  box.querySelectorAll('[data-parts]').forEach(btn=>{
+    btn.addEventListener('click', e=>{ e.stopPropagation(); openPartsLink(btn.dataset.parts); });
+  });
   box.querySelectorAll('.item').forEach(el=>{
     el.addEventListener('click', ()=>openSheet(el.dataset.id, car.id));
   });
@@ -1132,9 +1144,54 @@ function openSheet(id, carId){
     typeSel.addEventListener('change', updateExpiry);
     updateExpiry();
   }
+  // Тих линк към магазин вътре в картата — и за премиум: човекът сам го търси, не е реклама
+  const offers = partsOffersFor(id, cars.find(c=>c.id===carId));
+  if(offers.length){
+    document.getElementById('sheetFields').insertAdjacentHTML('beforeend',
+      `<div class="partsInSheet">${offers.map(o=>`<a class="renewLink" data-parts="${o.key}">🛒 ${o.label} — ${tr('партньорски магазин','partner shop')}</a>`).join('')}</div>`);
+    document.querySelectorAll('#sheetFields [data-parts]').forEach(a=>a.addEventListener('click', ()=>openPartsLink(a.dataset.parts)));
+  }
   document.getElementById('overlay').style.display='flex';
   document.getElementById('overlay').dataset.editing = id;
   document.getElementById('overlay').dataset.carId = carId;
+}
+
+// ==== Магазини за части (афилиейт) ====
+// Линковете се попълват след регистрация в програмите (AutoTim, Интимпекс, eMAG през Profitshare),
+// с нашия код в тях. Докато са null, бутонът казва „скоро“.
+const PARTS_URLS = {oil: null, tires: null, chain: null, charger: null};
+const PARTS_LABELS = {
+  oil:     tr('Масло и филтър', 'Oil and filter'),
+  tires:   tr('Гуми за сезона', 'Tires for the season'),
+  chain:   tr('Верига и спрей', 'Chain and lube'),
+  charger: tr('Зарядно за акумулатор', 'Battery charger')
+};
+// Кое предложение към коя карта и кога: гумите — само в сезона на смяна, зарядното — мотор през зимата
+function partsOffersFor(defId, car){
+  const m = now.getMonth() + 1;
+  const tireSeason = [3, 4, 10, 11].includes(m);
+  const winter = m >= 11 || m <= 2;
+  const keys = {
+    oil:   ['oil', ...(vehicleType(car) === 'moto' && winter ? ['charger'] : [])],
+    tires: tireSeason ? ['tires'] : [],
+    chain: ['chain']
+  }[defId] || [];
+  return keys.map(key=>({key, label: PARTS_LABELS[key]}));
+}
+// Код за отстъпка само за премиум потребители — когато магазинът ни даде такъв (напр. {code:'PARKBOOK5', text:'−5%'})
+const PARTS_PREMIUM_DISCOUNTS = {oil: null, tires: null, chain: null, charger: null};
+function partsHtml(offers){
+  const note = tr('Партньорска връзка. PARKBOOK може да получи комисиона.', 'Partner link. PARKBOOK may earn a commission.');
+  if(!isPremium){
+    return `<div class="partsRow">${offers.map(o=>`<button class="partsBtn" type="button" data-parts="${o.key}">🛒 ${o.label} →</button>`).join('')}</div><div class="partsNote">${note}</div>`;
+  }
+  const disc = offers.map(o=>PARTS_PREMIUM_DISCOUNTS[o.key] ? `${o.label}: <b>${escapeHtml(PARTS_PREMIUM_DISCOUNTS[o.key].text)}</b> ${tr('с код','with code')} <b>${escapeHtml(PARTS_PREMIUM_DISCOUNTS[o.key].code)}</b>` : '').filter(Boolean);
+  return `<div class="partsRow">${offers.map(o=>`<button class="partsBtn premium" type="button" data-parts="${o.key}">⭐ ${tr('Премиум оферта','Premium offer')}: ${o.label} →</button>`).join('')}</div>${disc.length ? `<div class="partsDisc">${disc.join(' · ')}</div>` : ''}<div class="partsNote">${note}</div>`;
+}
+function openPartsLink(key){
+  const url = PARTS_URLS[key];
+  if(!url){ showToast(tr('Скоро: проверени магазини за части направо оттук 🛒', 'Coming soon: trusted parts shops right from here 🛒')); return; }
+  window.open(url, '_blank', 'noopener');
 }
 
 document.getElementById('cancelBtn').addEventListener('click', ()=>{ document.getElementById('overlay').style.display='none'; });
