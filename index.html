@@ -154,6 +154,8 @@ button{border:none; border-radius:10px; padding:12px; font-weight:700; font-size
 .partsDisc{font-size:12px; color:var(--amber); margin-top:6px;}
 .partsNote{font-size:10.5px; color:var(--muted); margin-top:5px;}
 .partsInSheet{margin-top:6px;}
+.taxPay{margin-top:14px;}
+.taxEpay{display:block; text-align:center; text-decoration:none; padding:12px; border-radius:10px; font-weight:700; font-size:14.5px;}
 .summary .renewBtn{margin-top:8px;}
 .renewText{font-size:13.5px; line-height:1.5; margin:0 0 12px;}
 .renewExpiry{font-size:13px; color:var(--muted); margin:-6px 0 12px;}
@@ -225,7 +227,10 @@ const defs = [
   {id:'inspection', title:tr('Годишен технически преглед','Annual technical inspection'), mode:'date', fields:['date','expiry'], premium:true,
    labels:{date:tr('Дата на преглед','Inspection date'),expiry:tr('Изтича на','Expires on')}},
   {id:'casco', title:tr('Каско','Casco (comprehensive)'), mode:'date', fields:['date','expiry'], premium:true,
-   labels:{date:tr('Дата на плащане','Payment date'),expiry:tr('Изтича на','Expires on')}}
+   labels:{date:tr('Дата на плащане','Payment date'),expiry:tr('Изтича на','Expires on')}},
+  // Данък МПС: сроковете са по закон (ЗМДТ, чл. 60) и са едни и същи за всички — човекът само отбелязва какво е платил
+  {id:'tax', title:tr('Данък МПС','Vehicle tax'), mode:'tax', fields:['status'], premium:true,
+   labels:{status:tr('Платено за','Paid for')}}
 ];
 // Вид превозно средство: 'car' (по подразбиране — и за старите записи без вид) или 'moto'
 const VEHICLE_TYPES = {car:{label:tr('Кола','Car'), icon:'🚗'}, moto:{label:tr('Мотор','Motorcycle'), icon:'🏍️'}};
@@ -464,8 +469,43 @@ function addMonths(dateStr, months){
   return d.toISOString().slice(0,10);
 }
 
+// Данък МПС: целият до 30.04 с 5% отстъпка, или на две вноски — до 30.06 и до 31.10.
+// Пазим {status:'', 'first' или 'full', year}; от нова година всичко започва отначало.
+function taxState(rec){
+  const y = today.getUTCFullYear();
+  const known = !!(rec && String(rec.year) === String(y));
+  const paid = known ? (rec.status || '') : '';
+  const d = md => `${y}-${md}`;
+  const t = todayISO();
+  // Още не е отбелязал нищо за годината: не знаем дали е платил → никога червено, само напомняне преди срок
+  if(!known){
+    if(t.slice(5, 7) === '04') return {paid, unknown:true, kind:'discount', next:d('04-30')};
+    if(t <= d('06-30')) return {paid, unknown:true, kind:'first', next:d('06-30')};
+    if(t <= d('10-31')) return {paid, unknown:true, kind:'second', next:d('10-31')};
+    return {paid, unknown:true};
+  }
+  if(paid === 'full') return {paid};
+  if(paid === 'first') return {paid, kind:'second', next:d('10-31'), overdue: t > d('10-31')};
+  if(t.slice(5, 7) === '04') return {paid, kind:'discount', next:d('04-30')};   // през април напомняме за отстъпката
+  if(t <= d('06-30')) return {paid, kind:'first', next:d('06-30')};
+  return {paid, kind:'both', next:d('10-31'), overdue:true};                        // 1-вата вноска е пропусната
+}
+
 function statusFor(def, data, currentKm){
   const rec = data[def.id];
+  if(def.mode==='tax'){
+    const st = taxState(rec);
+    if(st.paid === 'full') return {cls:'ok', label:tr('Платен','Paid'), tax:st};
+    if(st.unknown){
+      const dd = st.next ? daysUntil(st.next) : null;
+      if(dd !== null && dd <= 15) return {cls:'soon', label:`${tr('До','By')} ${fmtDate(st.next).slice(0, 5)}`, days:dd, expiry:st.next, tax:st};
+      return {cls:'soon', label:tr('Отбележи','Mark it'), missing:true, tax:st};
+    }
+    if(st.overdue) return {cls:'over', label:tr('Просрочен','Overdue'), days:-1, expiry:st.next, tax:st};
+    const d = daysUntil(st.next);
+    const cls = d<=7 && st.kind!=='discount' ? 'over' : (d<=15 ? 'soon' : 'ok');
+    return {cls, label:`${tr('До','By')} ${fmtDate(st.next).slice(0, 5)}`, days:d, expiry:st.next, tax:st};
+  }
   // missing — няма попълнени данни (не значи, че нещо наближава)
   // days / expiry — ползват се от лентата със статуса най-горе
   // Маслото и гумите са дневник: приложението не знае реалния пробег, затова са без цвят/срок.
@@ -501,8 +541,8 @@ function daysLabel(d){ return tr(`${d} дни`, d===1 ? '1 day' : `${d} days`); 
 
 // ==== Лентата със статуса най-горе — казва КАКВО наближава, а когато всичко е наред, е приятелска ====
 const SHORT_NAMES = LANG === 'en'
-  ? {oil:'Oil', tires:'Tires', chain:'Chain', civil:'Liability insurance', vignette:'Vignette', inspection:'Inspection', casco:'Casco'}
-  : {oil:'Маслото', tires:'Гумите', chain:'Веригата', civil:'Гражданската', vignette:'Винетката', inspection:'Прегледът', casco:'Каското'};
+  ? {oil:'Oil', tires:'Tires', chain:'Chain', civil:'Liability insurance', vignette:'Vignette', inspection:'Inspection', casco:'Casco', tax:'Vehicle tax'}
+  : {oil:'Маслото', tires:'Гумите', chain:'Веригата', civil:'Гражданската', vignette:'Винетката', inspection:'Прегледът', casco:'Каското', tax:'Данъкът'};
 // ==== Репликите на талисмана — приятелски и леко нахален тон (като Duolingo), никога обиден ====
 // {x} се заменя с най-спешното, напр. „гражданската изтича след 4 дни“. Репликата на деня се сменя всеки ден,
 // а при натискане на колата излиза друга (от същото настроение или от TAP_LINES).
@@ -625,11 +665,23 @@ function whenText(s){
   if(s.days === 1) return tr('изтича утре', 'expires tomorrow');
   return tr(`изтича след ${s.days} дни`, `expires in ${s.days} days`);
 }
-function phrase(e){ return `${SHORT_NAMES[e.def.id] || e.def.title} ${whenText(e.s)}`; }
+function phrase(e){
+  if(e.def.id === 'tax') return taxPhrase(e.s);
+  return `${SHORT_NAMES[e.def.id] || e.def.title} ${whenText(e.s)}`;
+}
+function taxPhrase(s){
+  const st = s.tax || {};
+  const inDays = s.days === 0 ? tr('днес', 'today') : tr(`след ${s.days} дни`, `in ${s.days} days`);
+  if(st.kind === 'both') return tr('1-вата вноска за данъка е просрочена', 'The 1st vehicle tax instalment is overdue');
+  if(st.overdue) return tr('данъкът за годината е просрочен', 'this year\'s vehicle tax is overdue');
+  if(st.kind === 'discount') return tr(`целият данък с 5% отстъпка е до 30.04 (${inDays})`, `the full vehicle tax with a 5% discount is due by 30.04 (${inDays})`);
+  if(st.kind === 'first') return tr(`1-вата вноска за данъка е до 30.06 (${inDays})`, `the 1st vehicle tax instalment is due by 30.06 (${inDays})`);
+  return tr(`2-рата вноска за данъка е до 31.10 (${inDays})`, `the 2nd vehicle tax instalment is due by 31.10 (${inDays})`);
+}
 
 // Лентата следи само документите със срок. Маслото и гумите са дневник (кога и на колко км е сменено) —
 // приложението не знае реалния пробег, затова не ги броим като „наближава“.
-const SUMMARY_IDS = ['civil', 'vignette', 'inspection', 'casco'];
+const SUMMARY_IDS = ['civil', 'vignette', 'inspection', 'casco', 'tax'];
 
 // ==== Колата-талисман: същата кола като иконата, фаровете са очи, а усмивката — уста ====
 // Настроението идва от цвета на лентата: ok → весела, soon → притеснена, over → тъжна, none → сънлива.
@@ -673,7 +725,7 @@ function mascotHtml(summaryCls){
 
 function buildSummary(defsList, data, km, type){
   const docs = defsList.filter(def=>SUMMARY_IDS.includes(def.id));
-  const docNames = type === 'moto' ? tr('гражданска, преглед и каско', 'liability insurance, inspection and casco') : tr('гражданска, винетка, преглед и каско', 'liability insurance, vignette, inspection and casco');
+  const docNames = type === 'moto' ? tr('гражданска, преглед, каско и данък', 'liability insurance, inspection, casco and tax') : tr('гражданска, винетка, преглед, каско и данък', 'liability insurance, vignette, inspection, casco and tax');
   if(!docs.length){
     // Безплатна версия — документите са заключени
     return {cls:'ok', main:mascotLine('happy'), sub:tr(`Следи ${docNames} с премиум — ще ти казваме кога изтичат.`, `Track ${docNames} with premium — we will tell you when they expire.`)};
@@ -694,7 +746,7 @@ function buildSummary(defsList, data, km, type){
     const x = first.charAt(0).toLowerCase() + first.slice(1);   // в средата на изречението
     return {cls: over.length ? 'over' : 'soon', main:mascotLine(over.length ? 'sad' : 'worried', x), x,
       sub: rest ? `${tr('Също','Also')}: ${rest}` : tr('Натисни реда отдолу, за да го обновиш.', 'Tap the row below to update it.'),
-      renewId: RENEW_LABELS[urgent[0].def.id] ? urgent[0].def.id : null};
+      renewId: RENEW_LABELS[urgent[0].def.id] ? urgent[0].def.id : null, taxPay: urgent[0].def.id === 'tax'};
   }
   const next = tracked[0];
   const when = tr(`${SHORT_NAMES[next.def.id]} на ${fmtDate(next.s.expiry)} (след ${next.s.days} дни)`, `${SHORT_NAMES[next.def.id]} on ${fmtDate(next.s.expiry)} (in ${next.s.days} days)`);
@@ -706,6 +758,13 @@ function buildSummary(defsList, data, km, type){
 
 function detailFor(def, data){
   const rec = data[def.id];
+  if(def.mode==='tax'){
+    const st = taxState(rec), y = today.getUTCFullYear();
+    if(st.paid === 'full') return tr(`Платен за ${y} ✓`, `Paid for ${y} ✓`);
+    if(st.paid === 'first') return tr('1-вата вноска е платена · 2-рата до 31.10', '1st instalment paid · 2nd due by 31.10');
+    if(st.unknown) return tr('Отбележи какво си платил тази година — ще ти напомняме за сроковете', 'Mark what you paid this year — we will remind you of the deadlines');
+    return tr('Целият до 30.04 с 5% отстъпка · или на две вноски: 30.06 и 31.10', 'Full by 30.04 with 5% off · or two instalments: 30.06 and 31.10');
+  }
   if(!rec || !rec.date) return tr('Няма въведени данни', 'No data entered');
   if(def.mode==='date_period'){
     if(!rec.period) return fmtDate(rec.date);
@@ -791,7 +850,8 @@ function renderMain(){
   const docEntries = unlocked.filter(d=>SUMMARY_IDS.includes(d.id)).map(d=>statusFor(d, data, car.km));
   const newMedals = evaluateMedals({
     setup: fullAccess && docEntries.length > 0 && docEntries.every(s=>!s.missing),
-    allgood: fullAccess && docEntries.length > 0 && docEntries.every(s=>!s.missing && s.cls==='ok')
+    allgood: fullAccess && docEntries.length > 0 && docEntries.every(s=>!s.missing && s.cls==='ok'),
+    taxEarly: fullAccess && !!(data.tax && data.tax.status === 'full' && data.tax.paidAt && data.tax.paidAt.slice(5) <= '04-30' && data.tax.paidAt.slice(0, 4) === String(data.tax.year))
   });
   const medalCount = Object.keys(getMedals()).length;
 
@@ -806,7 +866,7 @@ function renderMain(){
     return `<div class="item" data-id="${def.id}">
       <div class="item-top"><div class="item-title">${def.title}</div><div class="status ${s.cls}">${s.label}</div></div>
       <div class="item-detail">${detailFor(def, data)}</div>
-      ${renew}${parts}
+      ${renew}${parts}${def.id==='tax' && s.cls!=='ok' ? `<button class="renewBtn ${hot ? 'hot' : ''}" type="button" data-tax-pay>${tr('Плати данъка','Pay the tax')} →</button>` : ''}
     </div>`;
   }).join('');
 
@@ -836,13 +896,16 @@ function renderMain(){
   box.innerHTML = `
     <div class="carcard"><div><h2>${VEHICLE_TYPES[vehicleType(car)].icon} ${car.name}</h2><div class="sub">${tr('Текущ пробег','Current mileage')}: ${(car.km||0).toLocaleString(tr('bg-BG','en-GB'))} ${tr('км','km')}</div></div><button class="sosBtn" id="sosBtn" type="button">🆘 ${tr('Авария','Breakdown')}</button></div>
     ${premiumBanner}
-    <div class="summary withMascot ${summary.cls}">${mascotHtml(summary.cls)}<div><div class="smain">${summary.main}</div><div class="ssub">${summary.sub}</div>${summary.renewId ? `<button class="renewBtn hot" type="button" data-renew="${summary.renewId}">${RENEW_LABELS[summary.renewId]} →</button>` : ''}</div></div>
+    <div class="summary withMascot ${summary.cls}">${mascotHtml(summary.cls)}<div><div class="smain">${summary.main}</div><div class="ssub">${summary.sub}</div>${summary.renewId ? `<button class="renewBtn hot" type="button" data-renew="${summary.renewId}">${RENEW_LABELS[summary.renewId]} →</button>` : ''}${summary.taxPay ? `<button class="renewBtn hot" type="button" data-tax-pay>${tr('Плати данъка','Pay the tax')} →</button>` : ''}</div></div>
     <button class="medalBar" id="medalBar" type="button"><span>🏅 ${medalCount}/${MEDALS.length} ${tr('медала','medals')}</span><span>${tr('Облечи колата →','Dress up your car →')}</span></button>
     <div id="items">${itemsHtml}</div>
     <div id="lockedItems">${lockedHtml}</div>
     ${unlockBlock}
   `;
 
+  box.querySelectorAll('[data-tax-pay]').forEach(btn=>{
+    btn.addEventListener('click', e=>{ e.stopPropagation(); openTaxPay(car.id); });
+  });
   box.querySelectorAll('[data-parts]').forEach(btn=>{
     btn.addEventListener('click', e=>{ e.stopPropagation(); openPartsLink(btn.dataset.parts); });
   });
@@ -947,7 +1010,8 @@ const MEDALS = [
   {id:'partner', icon:'🤝', name:tr('През приложението','Via the app'),   how:tr('Поднови при партньор през бутона „Поднови“','Renew with a partner via the Renew button')},
   {id:'streak3', icon:'🔥', name:tr('Серия от 3','Streak of 3'),           how:tr('3 подновявания навреме','3 on-time renewals')},
   {id:'moto',    icon:'🏍️', name:tr('Моторист','Rider'),                   how:tr('Добави мотор','Add a motorcycle')},
-  {id:'fleet',   icon:'🚗', name:tr('Автопарк','Fleet'),                   how:tr('Добави второ превозно средство','Add a second vehicle')}
+  {id:'fleet',   icon:'🚗', name:tr('Автопарк','Fleet'),                   how:tr('Добави второ превозно средство','Add a second vehicle')},
+  {id:'taxes',   icon:'🧾', name:tr('Данъци навреме','Taxes on time'),     how:tr('Плати целия данък до 30 април с отстъпката','Pay the full tax by 30 April with the discount')}
 ];
 const SKIN_ACCESSORIES = [
   {id:'none',    name:tr('Без','None')},
@@ -999,7 +1063,8 @@ function evaluateMedals(state){
     partner: renewals.some(r=>r.via === 'partner'),
     streak3: onTime.length >= 3,
     moto: cars.some(c=>vehicleType(c) === 'moto'),
-    fleet: cars.length >= 2
+    fleet: cars.length >= 2,
+    taxes: state.taxEarly
   };
   const fresh = MEDALS.filter(m=>earned[m.id] && !got[m.id]);
   if(fresh.length){ fresh.forEach(m=>{ got[m.id] = todayISO(); }); writeJson(MEDALS_KEY, got); }
@@ -1113,6 +1178,12 @@ function openSheet(id, carId){
       return `<label>${def.labels[f]}</label><select data-f="period">${opts}</select>
         <label>${tr('Изтича на','Expires on')}</label><div class="calcExpiry" id="calcExpiry">—</div>`;
     }
+    if(f==='status'){
+      const st = taxState(rec).paid;
+      const opts = [['', tr('Още нищо не съм платил','Nothing paid yet')], ['first', tr('1-вата вноска','1st instalment')], ['full', tr('Целият данък (или двете вноски)','Full tax (or both instalments)')]]
+        .map(([v, l])=>`<option value="${v}" ${st===v?'selected':''}>${l}</option>`).join('');
+      return `<label>${def.labels[f]} ${today.getUTCFullYear()}</label><select data-f="status">${opts}</select>${taxPayLinksHtml()}`;
+    }
     if(f==='vtype'){
       const cur = rec.vtype || 'year';
       const opts = Object.entries(VIGNETTE_TYPES).map(([k,v])=>`<option value="${k}" ${cur===k?'selected':''}>${v}</option>`).join('');
@@ -1154,6 +1225,30 @@ function openSheet(id, carId){
   document.getElementById('overlay').style.display='flex';
   document.getElementById('overlay').dataset.editing = id;
   document.getElementById('overlay').dataset.carId = carId;
+}
+
+// ==== Плащане на данъка ====
+// Плащането е при ePay / eGov / EasyPay — там човекът въвежда ЕГН, не при нас. ePay позволи линк (28.09.2026), без комисиона.
+function taxPayLinksHtml(){
+  return `<div class="taxPay">
+    <a class="renewGo taxEpay" href="https://www.epay.bg/v3main/front?p=tax" target="_blank" rel="noopener">💳 ${tr('Провери и плати в ePay.bg','Check and pay on ePay.bg')}</a>
+    <a class="renewLink" href="https://pay.egov.bg/" target="_blank" rel="noopener">${tr('Или през държавния портал pay.egov.bg','Or via the state portal pay.egov.bg')}</a>
+    <p class="renewNote">${tr('На каса: във всеки EasyPay — само с ЕГН. Сумата зависи от колата и общината — виждаш я при плащането. PARKBOOK не пита за ЕГН.', 'In person: at any EasyPay office with your personal ID number. The amount depends on the car and municipality — you see it when paying. PARKBOOK never asks for your ID number.')}</p>
+  </div>`;
+}
+function openTaxPay(carId){
+  const s = statusFor(defs.find(d=>d.id==='tax'), getData(carId));
+  document.getElementById('renewTitle').textContent = tr('Плати данъка', 'Pay the vehicle tax');
+  document.getElementById('renewBody').innerHTML = `
+    <p class="renewText">${s.cls === 'ok' && s.tax && s.tax.paid === 'full' ? tr('Данъкът за годината е платен ✓', 'This year\'s tax is paid ✓') : taxPhrase(s).charAt(0).toUpperCase() + taxPhrase(s).slice(1) + '.'}</p>
+    ${taxPayLinksHtml()}
+    <a class="renewLink" id="taxDoneLink">${tr('Платих — отбележи','I paid — mark it')}</a>
+    <a class="renewLink" id="taxCloseLink">${tr('Затвори','Close')}</a>`;
+  const ov = document.getElementById('renewOverlay');
+  const close = ()=>{ ov.style.display = 'none'; };
+  ov.style.display = 'flex';
+  document.getElementById('taxCloseLink').addEventListener('click', close);
+  document.getElementById('taxDoneLink').addEventListener('click', ()=>{ close(); openSheet('tax', carId); });
 }
 
 // ==== Магазини за части (афилиейт) ====
@@ -1212,6 +1307,12 @@ document.getElementById('saveBtn').addEventListener('click', ()=>{
   } else {
     const carId = document.getElementById('overlay').dataset.carId;
     const data = getData(carId);
+    if(editing === 'tax'){
+      vals.year = today.getUTCFullYear();
+      // Кога е платен целият данък — за медала „Данъци навреме“ (до 30.04 с отстъпката)
+      const before = data.tax && String(data.tax.year) === String(vals.year) ? data.tax : {};
+      if(vals.status === 'full') vals.paidAt = before.status === 'full' && before.paidAt ? before.paidAt : todayISO();
+    }
     data[editing] = vals;
     saveData(carId, data);
     renderMain();
