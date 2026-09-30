@@ -39,6 +39,27 @@ h1,.brand{font-family:'Space Grotesk',sans-serif;}
 .carPill.addNew{color:var(--amber); border-style:dashed;}
 .carcard{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px 18px; margin-bottom:14px;}
 .carcard h2{margin:0 0 3px; font-size:18px;}
+.carcard{display:flex; justify-content:space-between; align-items:flex-start; gap:12px;}
+.sosBtn{flex-shrink:0; background:transparent; color:var(--red); border:1px solid var(--red); border-radius:100px; padding:7px 12px; font-size:12.5px; font-weight:700;}
+.sosCall{display:block; text-align:center; text-decoration:none; background:var(--red); color:#fff; border-radius:10px; padding:13px; font-weight:700; font-size:15px;}
+.sosLoc{width:100%; margin-top:10px; background:var(--panel2); color:var(--ink); border:1px solid var(--line);}
+.sosOut{background:var(--panel2); border:1px dashed var(--line); border-radius:10px; padding:10px 12px; margin-top:10px; font-size:13px; line-height:1.6;}
+.sosOut a{color:var(--amber); font-weight:600; margin-right:12px;}
+.sos112{display:block; text-align:center; margin-top:14px; color:var(--red); font-weight:700; font-size:13.5px; text-decoration:none;}
+.medalBar{width:100%; display:flex; justify-content:space-between; align-items:center; background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:12px; padding:11px 14px; margin:-4px 0 14px; font-size:13px; font-weight:600;}
+.medalBar span:last-child{color:var(--amber);}
+.medalGrid{display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-bottom:16px;}
+.medal{background:var(--panel2); border:1px solid var(--line); border-radius:10px; padding:9px 4px; text-align:center; font-size:10.5px; line-height:1.3; color:var(--muted);}
+.medal .mi{font-size:22px; display:block; margin-bottom:3px;}
+.medal.got{border-color:var(--amber); color:var(--ink);}
+.medal:not(.got) .mi{filter:grayscale(1); opacity:.35;}
+.skinTitle{font-size:12.5px; color:var(--muted); margin:4px 0 8px;}
+.skinRow{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;}
+.skinChip{background:var(--panel2); color:var(--ink); border:1px solid var(--line); border-radius:100px; padding:7px 12px; font-size:12.5px; font-weight:600;}
+.skinChip.on{border-color:var(--amber); color:var(--amber);}
+.skinChip.lock{opacity:.5;}
+.skinChip .sw{display:inline-block; width:11px; height:11px; border-radius:50%; margin-right:6px; vertical-align:-1px;}
+.skinNote{font-size:11.5px; color:var(--muted); line-height:1.5;}
 .carcard .sub{font-size:12.5px; color:var(--muted);}
 .summary{background:var(--panel2); border:1px solid var(--line); border-radius:14px; padding:12px 16px; margin-bottom:14px; display:flex; align-items:flex-start; gap:10px;}
 .summary .smain{font-size:14px; font-weight:600; line-height:1.35;}
@@ -610,6 +631,8 @@ const MASCOT_MOODS = {ok:'happy', soon:'worried', over:'sad', none:'sleepy'};
 const MASCOT_EYES = {happy:'#5cc27f', worried:'#e0a83d', sad:'#d9634f', sleepy:'#8b93a1'};
 function mascotHtml(summaryCls){
   const mood = MASCOT_MOODS[summaryCls] || 'happy';
+  const skin = effectiveSkin();
+  const body = (SKIN_COLORS.find(c=>c.id===skin.color) || SKIN_COLORS[0]).hex;
   const eye = MASCOT_EYES[mood];
   const eyes = [32, 68].map(x=>{
     if(mood==='sleepy') return `<path d="M${x-5} 54 Q${x} 57.5 ${x+5} 54" fill="none" stroke="${eye}" stroke-width="2.6" stroke-linecap="round"/>`;
@@ -633,12 +656,12 @@ function mascotHtml(summaryCls){
   }[mood];
   return `<button class="mascot ${mood}" type="button" aria-label="${tr('Натисни колата — ще ти каже нещо', 'Tap the car — it will say something')}"><svg viewBox="16 18 70 62" aria-hidden="true">
     <ellipse cx="50" cy="77" rx="28" ry="2.6" fill="#000" opacity=".3"/>
-    <path d="M31 46 L37 31 Q39 26 45 26 L55 26 Q61 26 63 31 L69 46 Z" fill="#e8a33d"/>
+    <path d="M31 46 L37 31 Q39 26 45 26 L55 26 Q61 26 63 31 L69 46 Z" fill="${body}"/>
     <path d="M37 44 L41.5 33 Q42.5 30.5 45.5 30.5 L54.5 30.5 Q57.5 30.5 58.5 33 L63 44 Z" fill="#3a4150"/>
-    <rect x="20" y="43" width="60" height="23" rx="9" fill="#e8a33d"/>
+    <rect x="20" y="43" width="60" height="23" rx="9" fill="${body}"/>
     <rect x="24" y="63" width="11" height="13" rx="3.5" fill="#14171c"/><rect x="65" y="63" width="11" height="13" rx="3.5" fill="#14171c"/>
     <rect x="23" y="46" width="54" height="17" rx="7" fill="#14171c"/>
-    ${brows}${eyes}${mouth}${extra}
+    ${brows}${eyes}${mouth}${extra}${ACCESSORY_SVG[skin.acc] || ''}
   </svg></button>`;
 }
 
@@ -758,6 +781,13 @@ function renderMain(){
   const locked = carDefs.filter(d=>d.premium && !fullAccess);
 
   const summary = buildSummary(unlocked, data, car.km, vehicleType(car));
+  // Медали от състоянието на документите (само когато документите са отключени)
+  const docEntries = unlocked.filter(d=>SUMMARY_IDS.includes(d.id)).map(d=>statusFor(d, data, car.km));
+  const newMedals = evaluateMedals({
+    setup: fullAccess && docEntries.length > 0 && docEntries.every(s=>!s.missing),
+    allgood: fullAccess && docEntries.length > 0 && docEntries.every(s=>!s.missing && s.cls==='ok')
+  });
+  const medalCount = Object.keys(getMedals()).length;
 
   const itemsHtml = unlocked.map(def=>{
     const s = statusFor(def, data, car.km);
@@ -795,9 +825,10 @@ function renderMain(){
   }
 
   box.innerHTML = `
-    <div class="carcard"><h2>${VEHICLE_TYPES[vehicleType(car)].icon} ${car.name}</h2><div class="sub">${tr('Текущ пробег','Current mileage')}: ${(car.km||0).toLocaleString(tr('bg-BG','en-GB'))} ${tr('км','km')}</div></div>
+    <div class="carcard"><div><h2>${VEHICLE_TYPES[vehicleType(car)].icon} ${car.name}</h2><div class="sub">${tr('Текущ пробег','Current mileage')}: ${(car.km||0).toLocaleString(tr('bg-BG','en-GB'))} ${tr('км','km')}</div></div><button class="sosBtn" id="sosBtn" type="button">🆘 ${tr('Авария','Breakdown')}</button></div>
     ${premiumBanner}
     <div class="summary withMascot ${summary.cls}">${mascotHtml(summary.cls)}<div><div class="smain">${summary.main}</div><div class="ssub">${summary.sub}</div>${summary.renewId ? `<button class="renewBtn hot" type="button" data-renew="${summary.renewId}">${RENEW_LABELS[summary.renewId]} →</button>` : ''}</div></div>
+    <button class="medalBar" id="medalBar" type="button"><span>🏅 ${medalCount}/${MEDALS.length} ${tr('медала','medals')}</span><span>${tr('Облечи колата →','Dress up your car →')}</span></button>
     <div id="items">${itemsHtml}</div>
     <div id="lockedItems">${lockedHtml}</div>
     ${unlockBlock}
@@ -817,6 +848,9 @@ function renderMain(){
     lineEl.textContent = lastLine;
     mascotBtn.classList.remove('poke'); void mascotBtn.offsetWidth; mascotBtn.classList.add('poke');
   });
+  document.getElementById('sosBtn').addEventListener('click', openSos);
+  document.getElementById('medalBar').addEventListener('click', openMedals);
+  if(newMedals.length) showToast(`🏅 ${tr('Нов медал','New medal')}: ${newMedals.map(m=>m.name).join(', ')}`);
   box.querySelectorAll('[data-renew]').forEach(btn=>{
     btn.addEventListener('click', e=>{ e.stopPropagation(); openRenew(btn.dataset.renew, car.id); });
   });
@@ -884,6 +918,165 @@ function renderMain(){
 
 function promoOkText(until){
   return tr(`Код приет — безплатно до ${fmtDate(until)}, после 0,99 €/мес. или 9,99 €/год.`, `Code accepted — free until ${fmtDate(until)}, then €0.99/mo. or €9.99/yr.`);
+}
+
+// ==== Игра: медали за подновяване навреме → облекла за колата-талисман ====
+// Смесен модел: част от облеклата се печелят с медали, част са в премиума.
+// Медал за подновяване се дава само при потвърдено плащане (от клиента или от партньора),
+// не при ръчно въведена дата — иначе хората ще пишат измислени дати за медали.
+const MEDALS_KEY = 'car-tracker-medals-v1';
+const RENEWALS_KEY = 'car-tracker-renewals-v1';
+const SKIN_KEY = 'car-tracker-skin-v1';
+const MEDALS = [
+  {id:'setup',   icon:'📋', name:tr('Всичко въведено','All set up'),       how:tr('Въведи датите на всички документи','Enter all document dates')},
+  {id:'allgood', icon:'😎', name:tr('Всичко е наред','All good'),          how:tr('Всички документи са валидни','All documents are valid')},
+  {id:'ontime',  icon:'⏰', name:tr('Навреме','On time'),                  how:tr('Поднови преди изтичане и потвърди','Renew before expiry and confirm')},
+  {id:'early',   icon:'⚡', name:tr('Ранна птица','Early bird'),           how:tr('Поднови поне 7 дни по-рано','Renew at least 7 days early')},
+  {id:'partner', icon:'🤝', name:tr('През приложението','Via the app'),   how:tr('Поднови при партньор през бутона „Поднови“','Renew with a partner via the Renew button')},
+  {id:'streak3', icon:'🔥', name:tr('Серия от 3','Streak of 3'),           how:tr('3 подновявания навреме','3 on-time renewals')},
+  {id:'moto',    icon:'🏍️', name:tr('Моторист','Rider'),                   how:tr('Добави мотор','Add a motorcycle')},
+  {id:'fleet',   icon:'🚗', name:tr('Автопарк','Fleet'),                   how:tr('Добави второ превозно средство','Add a second vehicle')}
+];
+const SKIN_ACCESSORIES = [
+  {id:'none',    name:tr('Без','None')},
+  {id:'glasses', name:tr('Очила','Sunglasses'),   medal:'allgood'},
+  {id:'cap',     name:tr('Шапка','Cap'),          medal:'ontime'},
+  {id:'crown',   name:tr('Корона','Crown'),       medal:'streak3'},
+  {id:'winter',  name:tr('Зимна шапка','Beanie'), premium:true},
+  {id:'bowtie',  name:tr('Папийонка','Bow tie'),  premium:true}
+];
+const SKIN_COLORS = [
+  {id:'amber', hex:'#e8a33d', name:tr('Кехлибар','Amber')},
+  {id:'mint',  hex:'#5cc27f', name:tr('Мента','Mint'),   medal:'early'},
+  {id:'gold',  hex:'#f5d06b', name:tr('Злато','Gold'),   medal:'partner'},
+  {id:'blue',  hex:'#5b8def', name:tr('Синьо','Blue'),   premium:true},
+  {id:'pink',  hex:'#e87fb0', name:tr('Розово','Pink'),  premium:true},
+  {id:'red',   hex:'#d9634f', name:tr('Червено','Red'),  premium:true}
+];
+// Аксесоарите се рисуват в същия viewBox като колата (16 18 70 62)
+const ACCESSORY_SVG = {
+  glasses: '<rect x="39.5" y="33" width="9" height="6" rx="2.5" fill="#101216"/><rect x="51.5" y="33" width="9" height="6" rx="2.5" fill="#101216"/><path d="M48.5 35.5 L51.5 35.5" stroke="#101216" stroke-width="1.6"/><rect x="41" y="34" width="3" height="1.4" rx=".7" fill="#fff" opacity=".5"/><rect x="53" y="34" width="3" height="1.4" rx=".7" fill="#fff" opacity=".5"/>',
+  cap:     '<path d="M40 27.5 Q50 14 60 27.5 Z" fill="#d9634f"/><rect x="55" y="25.5" width="14" height="3" rx="1.5" fill="#b24a38"/><circle cx="50" cy="20.3" r="1.5" fill="#b24a38"/>',
+  crown:   '<path d="M41 27 L41 19 L45.5 23 L50 16.5 L54.5 23 L59 19 L59 27 Z" fill="#f5c542" stroke="#c99a1e" stroke-width=".8"/><circle cx="50" cy="16.5" r="1.3" fill="#d9634f"/>',
+  winter:  '<path d="M40 27.5 Q50 13 60 27.5 Z" fill="#5b8def"/><rect x="39" y="24.5" width="22" height="4" rx="2" fill="#f3f1ec"/><circle cx="50" cy="17" r="3" fill="#f3f1ec"/>',
+  bowtie:  '<path d="M43.5 67 L50 70 L43.5 73 Z M56.5 67 L50 70 L56.5 73 Z" fill="#d9634f"/><circle cx="50" cy="70" r="1.8" fill="#b24a38"/>'
+};
+function readJson(key, fallback){ try{ return JSON.parse(localStorage.getItem(key)) || fallback; }catch(e){ return fallback; } }
+function writeJson(key, v){ try{ localStorage.setItem(key, JSON.stringify(v)); }catch(e){} }
+function getMedals(){ return readJson(MEDALS_KEY, {}); }
+function hasFullAccess(){ return getPremiumStatus().active || trialStatus().active; }
+
+// Записва потвърдено подновяване: колко дни преди изтичане на старата полица е станало
+function recordRenewal(id, oldRec, via){
+  const old = statusFor(defs.find(d=>d.id===id), {[id]: oldRec || {}});
+  const list = readJson(RENEWALS_KEY, []);
+  list.push({id, at: todayISO(), daysLeft: (old.days === undefined ? null : old.days), via});
+  writeJson(RENEWALS_KEY, list);
+}
+
+// Проверява кои медали са спечелени; връща новите (за съобщението „Нов медал“)
+function evaluateMedals(state){
+  const got = getMedals();
+  const renewals = readJson(RENEWALS_KEY, []);
+  const onTime = renewals.filter(r=>r.daysLeft !== null && r.daysLeft >= 0);
+  const earned = {
+    setup: state.setup,
+    allgood: state.allgood,
+    ontime: onTime.length >= 1,
+    early: onTime.some(r=>r.daysLeft >= 7),
+    partner: renewals.some(r=>r.via === 'partner'),
+    streak3: onTime.length >= 3,
+    moto: cars.some(c=>vehicleType(c) === 'moto'),
+    fleet: cars.length >= 2
+  };
+  const fresh = MEDALS.filter(m=>earned[m.id] && !got[m.id]);
+  if(fresh.length){ fresh.forEach(m=>{ got[m.id] = todayISO(); }); writeJson(MEDALS_KEY, got); }
+  return fresh;
+}
+
+function skinUnlocked(item){
+  if(item.premium) return hasFullAccess();
+  if(item.medal) return !!getMedals()[item.medal];
+  return true;
+}
+// Избраното облекло, но само ако още е отключено (напр. премиумът е изтекъл → обратно към основното)
+function effectiveSkin(){
+  const s = readJson(SKIN_KEY, {});
+  const acc = SKIN_ACCESSORIES.find(a=>a.id===s.acc);
+  const col = SKIN_COLORS.find(c=>c.id===s.color);
+  return {acc: acc && skinUnlocked(acc) ? acc.id : 'none', color: col && skinUnlocked(col) ? col.id : 'amber'};
+}
+function lockText(item){
+  if(item.premium) return tr('Премиум', 'Premium');
+  const m = MEDALS.find(x=>x.id===item.medal);
+  return m ? `${tr('Медал','Medal')}: ${m.name}` : '';
+}
+
+function openMedals(){
+  const got = getMedals();
+  const skin = effectiveSkin();
+  const medalsHtml = MEDALS.map(m=>`<div class="medal ${got[m.id] ? 'got' : ''}" title="${escapeHtml(m.how)}"><span class="mi">${m.icon}</span>${m.name}</div>`).join('');
+  const chip = (item, kind, on)=>{
+    const open = skinUnlocked(item);
+    const sw = kind === 'color' ? `<span class="sw" style="background:${item.hex}"></span>` : '';
+    return `<button type="button" class="skinChip ${on ? 'on' : ''} ${open ? '' : 'lock'}" data-kind="${kind}" data-id="${item.id}" ${open ? '' : 'disabled'}>${sw}${open ? '' : '🔒 '}${item.name}${open ? '' : ` · ${lockText(item)}`}</button>`;
+  };
+  document.getElementById('renewTitle').textContent = tr('Медали и облекла', 'Medals and outfits');
+  document.getElementById('renewBody').innerHTML = `
+    <div class="medalGrid">${medalsHtml}</div>
+    <div class="skinTitle">${tr('Облекло','Outfit')}</div>
+    <div class="skinRow">${SKIN_ACCESSORIES.map(a=>chip(a, 'acc', skin.acc===a.id)).join('')}</div>
+    <div class="skinTitle">${tr('Цвят','Colour')}</div>
+    <div class="skinRow">${SKIN_COLORS.map(c=>chip(c, 'color', skin.color===c.id)).join('')}</div>
+    <p class="skinNote">${tr('Медалите за подновяване се печелят само с потвърдено плащане. Най-ценният — „През приложението“ — е за подновяване при партньор през бутона „Поднови“.', 'Renewal medals are earned only with a confirmed payment. The most valuable one — “Via the app” — is for renewing with a partner via the Renew button.')}</p>
+    <a class="renewLink" id="medalsClose">${tr('Затвори','Close')}</a>`;
+  const ov = document.getElementById('renewOverlay');
+  ov.style.display = 'flex';
+  document.getElementById('medalsClose').addEventListener('click', ()=>{ ov.style.display = 'none'; });
+  document.querySelectorAll('#renewBody .skinChip:not([disabled])').forEach(b=>b.addEventListener('click', ()=>{
+    const s = effectiveSkin();
+    s[b.dataset.kind] = b.dataset.id;
+    writeJson(SKIN_KEY, s);
+    renderMain();
+    openMedals();
+  }));
+}
+
+// ==== Бутон „Авария“ ====
+// Ние само свързваме: обаждане на пътната помощ на СБА (146) и местоположението на човека.
+// Не сме пътна помощ. При пострадали — 112.
+function openSos(){
+  document.getElementById('renewTitle').textContent = tr('Авария на пътя', 'Breakdown on the road');
+  document.getElementById('renewBody').innerHTML = `
+    <p class="renewText">${tr('Спокойно. Ето какво можеш да направиш:', 'Stay calm. Here is what you can do:')}</p>
+    <a class="sosCall" href="tel:146">📞 ${tr('Пътна помощ СБА · 146', 'SBA road assistance · 146')}</a>
+    <button class="sosLoc" id="sosLocBtn" type="button">📍 ${tr('Покажи местоположението ми', 'Show my location')}</button>
+    <div class="sosOut" id="sosLocOut" hidden></div>
+    <p class="renewNote">${tr('Имаш каско? Номерът за асистанс е на полицата ти.', 'Have casco? The assistance number is on your policy.')}</p>
+    <a class="sos112" href="tel:112">🚑 ${tr('Има пострадали? Звънни на 112', 'Anyone injured? Call 112')}</a>
+    <p class="renewNote">${tr('PARKBOOK само те свързва. Пътната помощ се предоставя от СБА при техните условия и цени.', 'PARKBOOK only connects you. Road assistance is provided by SBA on their own terms and prices.')}</p>
+    <a class="renewLink" id="sosClose">${tr('Затвори','Close')}</a>`;
+  const ov = document.getElementById('renewOverlay');
+  ov.style.display = 'flex';
+  document.getElementById('sosClose').addEventListener('click', ()=>{ ov.style.display = 'none'; });
+  document.getElementById('sosLocBtn').addEventListener('click', ()=>{
+    const out = document.getElementById('sosLocOut');
+    out.hidden = false;
+    if(!navigator.geolocation){ out.textContent = tr('Телефонът не дава местоположение. Кажи къде си по телефона.', 'Location is not available. Tell them where you are by phone.'); return; }
+    out.textContent = tr('Търся местоположението…', 'Finding your location…');
+    navigator.geolocation.getCurrentPosition(pos=>{
+      const lat = pos.coords.latitude.toFixed(5), lng = pos.coords.longitude.toFixed(5);
+      const map = `https://maps.google.com/?q=${lat},${lng}`;
+      const msg = tr(`Авария съм. Местоположение: ${map}`, `My car broke down. Location: ${map}`);
+      out.innerHTML = `<b>${lat}, ${lng}</b><br><a href="${map}" target="_blank" rel="noopener">${tr('Карта','Map')}</a><a href="sms:?&body=${encodeURIComponent(msg)}">${tr('Прати с SMS','Send by SMS')}</a><a href="#" id="sosCopy">${tr('Копирай','Copy')}</a>`;
+      document.getElementById('sosCopy').addEventListener('click', e=>{
+        e.preventDefault();
+        (navigator.clipboard ? navigator.clipboard.writeText(msg) : Promise.reject()).then(()=>{ e.target.textContent = tr('Копирано ✓','Copied ✓'); }).catch(()=>{});
+      });
+    }, ()=>{
+      out.textContent = tr('Няма достъп до местоположението. Разреши го в настройките или кажи къде си по телефона.', 'No access to your location. Allow it in settings or tell them where you are by phone.');
+    }, {enableHighAccuracy:true, timeout:15000, maximumAge:60000});
+  });
 }
 
 function renderAll(){ renderLangSwitch(); renderSwitcher(); renderMain(); }
@@ -1082,6 +1275,7 @@ function openPaidConfirm(p){
   const close = ()=>{ ov.style.display = 'none'; };
   ov.style.display = 'flex';
   document.getElementById('paidYesBtn').addEventListener('click', ()=>{
+    recordRenewal(p.id, data[p.id], 'confirm');
     data[p.id] = next;
     saveData(car.id, data);
     logRenewClick(p.id, 'paid', {name: p.partner});
@@ -1126,6 +1320,7 @@ function applyReturnFromPartner(){
 // Записва новата полица без въпроси и казва на човека докога важи
 function applyRenewal(car, id, rec, partnerName){
   const data = getData(car.id);
+  recordRenewal(id, data[id], 'partner');   // потвърдено от партньора — най-ценният медал
   data[id] = rec;
   saveData(car.id, data);
   logRenewClick(id, 'paid', {name: partnerName});
@@ -1157,12 +1352,18 @@ async function claimPostback(p){
     renderAll();
   }catch(e){}   // няма връзка — ще опитаме при следващо отваряне
 }
+let toastFreeAt = 0;
 function showToast(text){
-  const el = document.createElement('div');
-  el.className = 'toast';
-  el.textContent = text;
-  document.body.appendChild(el);
-  setTimeout(()=>el.remove(), 5000);
+  // Няколко съобщения едно след друго, не едно върху друго
+  const wait = Math.max(0, toastFreeAt - Date.now());
+  toastFreeAt = Date.now() + wait + 4300;
+  setTimeout(()=>{
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.textContent = text;
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(), 4000);
+  }, wait);
 }
 
 function checkPendingRenew(){
