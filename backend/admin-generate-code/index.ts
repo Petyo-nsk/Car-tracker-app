@@ -7,11 +7,27 @@
 //   { pin, name, months }                              → нов еднократен код
 //   { pin, name, months, reusable: true, code? }       → партньорски код (многократен, със статистика)
 //   { pin, action: 'stats' }                           → партньорските кодове + брой клиенти
+//   { pin, action: 'partners' }                        → партньорите, линковете им и отчетът за приходите по месеци
+//   { pin, action: 'partner_save', slug, name, product, url, commission_eur, commission_pct, lead_eur, auto_return, cid_param, active }
+//   { pin, action: 'partner_key', slug }               → нов ключ за сигнала (показва се само веднъж)
+//   { pin, action: 'report_add', slug, product, month: 'ГГГГ-ММ', sales, commission_eur, note }  → месечен отчет от партньора
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 // CORS — задължително за Edge Functions, иначе браузърът блокира отговора
 // когато страницата е на друг домейн от Supabase.
+const PRODUCTS = ['civil', 'vignette', 'casco', 'oil', 'tires', 'chain', 'charger', 'inspection', 'glass']
+
+async function sha256Hex(s: string) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s))
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+// Число от формата (приема и запетая), в граници; иначе null
+function num(v: unknown, max: number) {
+  const n = Number(String(v ?? '').replace(',', '.') || 0)
+  return n >= 0 && n <= max ? n : null
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -32,7 +48,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { pin, name, months, reusable, code: customCode, action } = await req.json()
+    const body = await req.json()
+    const { pin, name, months, reusable, code: customCode, action } = body
 
     const ADMIN_PIN = (Deno.env.get('ADMIN_PIN') || '').trim() // задава се като "secret" в Supabase, никога в кода
     const pinTrimmed = (pin || '').toString().trim()
@@ -87,6 +104,78 @@ Deno.serve(async (req) => {
       )
 
       return json({ stats, renew })
+    }
+
+    // ==== Партньори: линкове, ключове, отчет за приходите ====
+    if (action === 'partners') {
+      const { data: partners, error: e1 } = await supabase.from('partners').select('slug, name, key_hash, created_at').order('created_at')
+      const { data: links, error: e2 } = await supabase.from('partner_links').select('*').order('partner')
+      const { data: report, error: e3 } = await supabase.rpc('partner_report')
+      const err = e1 || e2 || e3
+      if (err) return json({ error: err.message }, 500)
+      return json({
+        partners: (partners || []).map((p) => ({ slug: p.slug, name: p.name, has_key: !!p.key_hash })),
+        links: links || [],
+        report: report || [],
+      })
+    }
+
+    if (action === 'partner_save') {
+      const slug = String(body.slug || '').toLowerCase().trim()
+      const pname = String(body.name || '').trim().slice(0, 60)
+      const product = String(body.product || '')
+      const cidParam = String(body.cid_param || 'cid').trim()
+      const eur = num(body.commission_eur, 1000), pct = num(body.commission_pct, 100), lead = num(body.lead_eur, 1000)
+      if (!/^[a-z0-9-]{3,30}$/.test(slug)) return json({ error: 'invalid_slug' }, 400)
+      if (!pname) return json({ error: 'invalid_name' }, 400)
+      if (!PRODUCTS.includes(product)) return json({ error: 'invalid_product' }, 400)
+      if (!/^[A-Za-z0-9_]{1,20}$/.test(cidParam)) return json({ error: 'invalid_cid_param' }, 400)
+      if (eur === null || pct === null || lead === null) return json({ error: 'invalid_commission' }, 400)
+      let url: URL
+      try { url = new URL(String(body.url || '')) } catch (_) { return json({ error: 'invalid_url' }, 400) }
+      if (url.protocol !== 'https:') return json({ error: 'invalid_url' }, 400)
+
+      // Само името — ключът на партньора остава непроменен
+      const { error: pErr } = await supabase.from('partners').upsert({ slug, name: pname }, { onConflict: 'slug' })
+      if (pErr) return json({ error: pErr.message }, 500)
+      const active = body.active !== false
+      if (active) {
+        // Един активен партньор за продукт — предишният става неактивен (не се трие)
+        await supabase.from('partner_links').update({ active: false }).eq('product', product).neq('partner', slug)
+      }
+      const { error: lErr } = await supabase.from('partner_links').upsert({
+        partner: slug, product, url: url.toString(), cid_param: cidParam,
+        commission_eur: eur, commission_pct: pct, lead_eur: lead,
+        auto_return: !!body.auto_return, active, updated_at: new Date().toISOString(),
+      }, { onConflict: 'partner,product' })
+      if (lErr) return json({ error: lErr.message }, 500)
+      return json({ ok: true })
+    }
+
+    if (action === 'partner_key') {
+      const slug = String(body.slug || '').toLowerCase().trim()
+      const key = 'pk_' + [...crypto.getRandomValues(new Uint8Array(20))].map((b) => b.toString(16).padStart(2, '0')).join('')
+      const { data, error } = await supabase.from('partners').update({ key_hash: await sha256Hex(key) }).eq('slug', slug).select('slug')
+      if (error) return json({ error: error.message }, 500)
+      if (!data?.length) return json({ error: 'unknown_partner' }, 404)
+      return json({ key })   // пазим само SHA-256 — ключът не може да се покаже втори път
+    }
+
+    if (action === 'report_add') {
+      const slug = String(body.slug || '').toLowerCase().trim()
+      const product = String(body.product || '')
+      const month = String(body.month || '')
+      const sales = parseInt(body.sales, 10)
+      const total = num(body.commission_eur, 1000000)
+      if (!PRODUCTS.includes(product)) return json({ error: 'invalid_product' }, 400)
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return json({ error: 'invalid_month' }, 400)
+      if (!(sales >= 0 && sales < 1000000) || total === null) return json({ error: 'invalid_numbers' }, 400)
+      const { error } = await supabase.from('partner_reports').upsert({
+        partner: slug, product, month: month + '-01', sales, commission_eur: total,
+        note: String(body.note || '').slice(0, 200) || null, updated_at: new Date().toISOString(),
+      }, { onConflict: 'partner,product,month' })
+      if (error) return json({ error: error.code === '23503' ? 'unknown_partner' : error.message }, 500)
+      return json({ ok: true })
     }
 
     const monthsNum = parseInt(months, 10)

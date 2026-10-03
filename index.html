@@ -235,7 +235,9 @@ const defs = [
 // Вид превозно средство: 'car' (по подразбиране — и за старите записи без вид) или 'moto'
 const VEHICLE_TYPES = {car:{label:tr('Кола','Car'), icon:'🚗'}, moto:{label:tr('Мотор','Motorcycle'), icon:'🏍️'}};
 function vehicleType(car){ return car && car.type === 'moto' ? 'moto' : 'car'; }
-function defsFor(car){ const t = vehicleType(car); return defs.filter(d=>!d.only || d.only===t); }
+// Данък МПС е готов, но изключен по решение на Петьо (03.10.2026). За да се появи картата и медалът: TAX_ENABLED = true.
+const TAX_ENABLED = false;
+function defsFor(car){ const t = vehicleType(car); return defs.filter(d=>(!d.only || d.only===t) && (d.id !== 'tax' || TAX_ENABLED)); }
 // Сезонна бележка за мотора: пролетта — проверка преди сезона, зимата — акумулаторът
 function motoSeasonTip(){
   const m = now.getMonth() + 1;
@@ -289,6 +291,7 @@ try{
   DEMO_MODE = sessionStorage.getItem('car-tracker-demo') === '1';
 }catch(e){}
 function renewPartner(id){
+  if(SERVER_PARTNERS[id]) return SERVER_PARTNERS[id];   // партньорите идват от сървъра (страницата с паролата)
   if(RENEW_PARTNERS[id]) return RENEW_PARTNERS[id];
   if(DEMO_MODE) return {name: RENEW_TEXTS[id].demoName, demo:true};
   return null;
@@ -359,6 +362,35 @@ function getDeviceId(){
     try{ localStorage.setItem(DEVICE_ID_KEY, id); }catch(e){}
   }
   return id;
+}
+
+// ==== Партньорите идват от сървъра ====
+// Добавят се от страницата с паролата (без промяна в кода): име, техният линк, нашият дял.
+// Приложението знае само името и краткото име; към сайта им се отива през нашия линк за препращане
+// (Edge Function `go`), който записва натискането с номер cid. Пазим последния списък и за работа без интернет.
+const PARTNERS_KEY = 'car-tracker-partners-v1';
+let SERVER_PARTNERS = {};   // {продукт: {name, slug, autoReturn}} — civil, vignette, casco, oil, tires, chain, charger…
+try{ SERVER_PARTNERS = JSON.parse(localStorage.getItem(PARTNERS_KEY)) || {}; }catch(e){}
+function newCid(){ return [...crypto.getRandomValues(new Uint8Array(12))].map(b=>b.toString(16).padStart(2,'0')).join(''); }   // 24 знака, не се отгатва
+function goUrl(partner, product, cid){
+  return `${SUPABASE_URL}/functions/v1/go?${new URLSearchParams({p: partner.slug, product, cid, d: getDeviceId()})}`;
+}
+async function loadPartners(){
+  if(!SUPABASE_CONFIGURED) return;
+  try{
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_renew_partners`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', 'apikey':SUPABASE_ANON_KEY, 'Authorization':`Bearer ${SUPABASE_ANON_KEY}`},
+      body: '{}'
+    });
+    if(!res.ok) return;
+    const next = {};
+    (await res.json()).forEach(r=>{ next[r.product] = {name: r.name, slug: r.slug, autoReturn: !!r.auto_return}; });
+    const changed = JSON.stringify(next) !== JSON.stringify(SERVER_PARTNERS);
+    SERVER_PARTNERS = next;
+    try{ localStorage.setItem(PARTNERS_KEY, JSON.stringify(next)); }catch(e){}
+    if(changed) renderMain();
+  }catch(e){}   // няма връзка — остава последният запазен списък
 }
 
 async function redeemCodeRemote(code){
@@ -725,7 +757,8 @@ function mascotHtml(summaryCls){
 
 function buildSummary(defsList, data, km, type){
   const docs = defsList.filter(def=>SUMMARY_IDS.includes(def.id));
-  const docNames = type === 'moto' ? tr('гражданска, преглед, каско и данък', 'liability insurance, inspection, casco and tax') : tr('гражданска, винетка, преглед, каско и данък', 'liability insurance, vignette, inspection, casco and tax');
+  const taxName = TAX_ENABLED ? tr(' и данък', ' and tax') : '';
+  const docNames = (type === 'moto' ? tr('гражданска, преглед и каско', 'liability insurance, inspection and casco') : tr('гражданска, винетка, преглед и каско', 'liability insurance, vignette, inspection and casco')) + taxName;
   if(!docs.length){
     // Безплатна версия — документите са заключени
     return {cls:'ok', main:mascotLine('happy'), sub:tr(`Следи ${docNames} с премиум — ще ти казваме кога изтичат.`, `Track ${docNames} with premium — we will tell you when they expire.`)};
@@ -1012,7 +1045,7 @@ const MEDALS = [
   {id:'moto',    icon:'🏍️', name:tr('Моторист','Rider'),                   how:tr('Добави мотор','Add a motorcycle')},
   {id:'fleet',   icon:'🚗', name:tr('Автопарк','Fleet'),                   how:tr('Добави второ превозно средство','Add a second vehicle')},
   {id:'taxes',   icon:'🧾', name:tr('Данъци навреме','Taxes on time'),     how:tr('Плати целия данък до 30 април с отстъпката','Pay the full tax by 30 April with the discount')}
-];
+].filter(m=>m.id !== 'taxes' || TAX_ENABLED);
 const SKIN_ACCESSORIES = [
   {id:'none',    name:tr('Без','None')},
   {id:'glasses', name:tr('Очила','Sunglasses'),   medal:'allgood'},
@@ -1252,8 +1285,9 @@ function openTaxPay(carId){
 }
 
 // ==== Магазини за части (афилиейт) ====
-// Линковете се попълват след регистрация в програмите (AutoTim, Интимпекс, eMAG през Profitshare),
-// с нашия код в тях. Докато са null, бутонът казва „скоро“.
+// Магазинът се добавя от страницата с паролата (като брокерите) и идва в SERVER_PARTNERS — тогава отиваме
+// при него през нашия линк за препращане. PARTS_URLS е за готови афилиейт линкове (AutoTim, Интимпекс,
+// eMAG през Profitshare) — те си броят сами с нашия код в линка. Докато няма нито едно, бутонът казва „скоро“.
 const PARTS_URLS = {oil: null, tires: null, chain: null, charger: null};
 const PARTS_LABELS = {
   oil:     tr('Масло и филтър', 'Oil and filter'),
@@ -1284,7 +1318,8 @@ function partsHtml(offers){
   return `<div class="partsRow">${offers.map(o=>`<button class="partsBtn premium" type="button" data-parts="${o.key}">⭐ ${tr('Премиум оферта','Premium offer')}: ${o.label} →</button>`).join('')}</div>${disc.length ? `<div class="partsDisc">${disc.join(' · ')}</div>` : ''}<div class="partsNote">${note}</div>`;
 }
 function openPartsLink(key){
-  const url = PARTS_URLS[key];
+  const partner = SERVER_PARTNERS[key];
+  const url = partner ? goUrl(partner, key, newCid()) : PARTS_URLS[key];
   if(!url){ showToast(tr('Скоро: проверени магазини за части направо оттук 🛒', 'Coming soon: trusted parts shops right from here 🛒')); return; }
   window.open(url, '_blank', 'noopener');
 }
@@ -1377,10 +1412,11 @@ function openRenew(id, carId){
     logRenewClick(id, 'go', partner);
     // Запомняме, че е тръгнал да купува. Случайният cid отива в линка — партньор с autoReturn ни връща
     // клиента след плащане с него и датите на полицата (виж applyReturnFromPartner) и тогава не питаме нищо.
-    const cid = [...crypto.getRandomValues(new Uint8Array(12))].map(b=>b.toString(16).padStart(2,'0')).join('');   // 24 знака, не се отгатва
+    const cid = newCid();
     setPending({carId, id, partner: partner.name, at: Date.now(), cid, auto: !!partner.autoReturn});
-    let url = partner.url;
-    if(partner.autoReturn){ try{ const u = new URL(partner.url); u.searchParams.set('cid', cid); url = u.toString(); }catch(e){} }
+    // Партньор от сървъра → през нашия линк за препращане (брои натискането и добавя cid към адреса му)
+    let url = partner.slug ? goUrl(partner, id, cid) : partner.url;
+    if(!partner.slug && partner.autoReturn){ try{ const u = new URL(partner.url); u.searchParams.set('cid', cid); url = u.toString(); }catch(e){} }
     window.open(url, '_blank', 'noopener');
   });
   const closeBtn = document.getElementById('renewCloseBtn');
@@ -1544,6 +1580,7 @@ document.querySelectorAll('[data-t]').forEach(el=>{ el.textContent = {cancel:tr(
 applyReturnFromPartner();
 renderAll();
 checkPendingRenew();
+loadPartners();
 
 // PWA — позволява „Добави към началния екран“ и работа без интернет
 if('serviceWorker' in navigator){

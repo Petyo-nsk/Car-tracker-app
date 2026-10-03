@@ -45,6 +45,20 @@ button:disabled{opacity:0.6; cursor:default;}
 .errMsg{color:var(--red); font-size:12.5px; margin-top:8px; min-height:16px;}
 .okMsg{color:var(--green); font-size:12.5px; margin-top:8px; min-height:16px;}
 .note{font-size:11.5px; color:var(--muted); line-height:1.5; margin-top:14px;}
+.mini{width:auto; margin:8px 6px 0 0; padding:7px 11px; font-size:12px; background:var(--panel); border:1px solid var(--line); color:var(--ink);}
+.check{display:flex; align-items:center; gap:8px; margin-top:12px; font-size:12.5px; color:var(--ink);}
+.check input{width:auto;}
+.row3{display:flex; gap:8px;}
+.row3>div{flex:1; min-width:0;}
+.pCard{background:var(--panel2); border:1px solid var(--line); border-radius:11px; padding:11px 12px; margin-bottom:8px; font-size:12.5px; line-height:1.5;}
+.pCard .url{color:var(--muted); word-break:break-all;}
+.pCard.off{opacity:.55;}
+textarea{width:100%; min-height:220px; background:var(--panel2); border:1px dashed var(--amber); border-radius:9px; padding:10px 11px; color:var(--ink); font-size:12px; font-family:inherit; line-height:1.5; margin-top:10px;}
+table.rep{width:100%; border-collapse:collapse; font-size:12px; margin-top:6px;}
+table.rep th, table.rep td{padding:6px 4px; border-bottom:1px solid var(--line); text-align:right; font-variant-numeric:tabular-nums;}
+table.rep th:first-child, table.rep td:first-child{text-align:left;}
+table.rep th{color:var(--muted); font-weight:600;}
+table.rep tr.m td{color:var(--amber); font-weight:700; border-bottom:none; padding-top:12px;}
 .warnCard{background:#3a1f1b; border:1px solid var(--red); border-radius:14px; padding:14px 16px; margin-bottom:16px; font-size:12.5px; line-height:1.5;}
 </style>
 </head>
@@ -88,6 +102,51 @@ button:disabled{opacity:0.6; cursor:default;}
     <button class="copyBtn" id="statsBtn">Покажи статистиката</button>
     <div class="errMsg" id="statsMsg"></div>
     <div class="log" id="statsBox"></div>
+  </div>
+
+  <div class="card">
+    <div style="font-weight:600; font-size:14px; margin-bottom:4px;">Партньори и приходи</div>
+    <div class="note" style="margin-top:0;">Брокери, застрахователи и магазини за части и гуми. Добавяш техния линк и нашия дял — приложението го взима само. Нужна е паролата отгоре.</div>
+    <button class="copyBtn" id="partnersBtn">Покажи партньорите и отчета</button>
+    <div class="errMsg" id="partnersMsg"></div>
+    <div id="partnersBox"></div>
+    <div id="keyBox"></div>
+
+    <div style="font-weight:600; font-size:13.5px; margin:20px 0 10px;">Добави или промени партньор</div>
+    <label>Име (показва се в приложението)</label>
+    <input id="pName" placeholder="Напр. Insurance.bg, Гуми Диана">
+    <label>Кратко име за линка (малки латински букви и цифри)</label>
+    <input id="pSlug" placeholder="insurancebg" style="text-transform:lowercase;">
+    <label>За какво</label>
+    <select id="pProduct"></select>
+    <label>Техният линк (където пращаме клиента)</label>
+    <input id="pUrl" placeholder="https://…">
+    <label>Нашият дял</label>
+    <div class="row3">
+      <div><input id="pEur" inputmode="decimal" placeholder="€ на продажба"></div>
+      <div><input id="pPct" inputmode="decimal" placeholder="% от сумата"></div>
+      <div><input id="pLead" inputmode="decimal" placeholder="€ на заявка"></div>
+    </div>
+    <div class="note" style="margin-top:6px;">Брокери: обикновено € на полица (и евентуално € на заявка). Магазини: % от поръчката. Празно = 0.</div>
+    <label>Име на параметъра с нашия номер в техния линк</label>
+    <input id="pCid" value="cid">
+    <label class="check"><input type="checkbox" id="pAuto"> Партньорът ни праща датата на полицата (приложението не пита „Купи ли?“)</label>
+    <label class="check"><input type="checkbox" id="pActive" checked> Активен (показва се в приложението)</label>
+    <button class="primary" id="pSaveBtn">Запази партньора</button>
+    <div class="errMsg" id="pSaveMsg"></div>
+
+    <div style="font-weight:600; font-size:13.5px; margin:20px 0 10px;">Месечен отчет от партньор (ръчно)</div>
+    <div class="note" style="margin-top:0;">Ако партньорът не праща автоматичен сигнал, а отчет веднъж месечно — въведи числата тук.</div>
+    <label>Партньор и продукт</label>
+    <select id="rLink"></select>
+    <label>Месец</label>
+    <input id="rMonth" type="month">
+    <div class="row3">
+      <div><label>Брой продажби</label><input id="rSales" inputmode="numeric" placeholder="0"></div>
+      <div><label>Наш дял общо (€)</label><input id="rTotal" inputmode="decimal" placeholder="0"></div>
+    </div>
+    <button class="copyBtn" id="rSaveBtn">Запиши отчета</button>
+    <div class="errMsg" id="rSaveMsg"></div>
   </div>
 
   <div class="card">
@@ -237,6 +296,189 @@ document.getElementById('genBtn').addEventListener('click', async ()=>{
   }catch(e){
     msg.textContent = 'Грешка при връзка — опитай пак.';
   }
+  btn.disabled = false;
+});
+
+// ==== Партньори и приходи ====
+const PRODUCT_LABELS = {civil:'Гражданска отговорност', vignette:'Винетка', casco:'Каско', oil:'Масло и филтър', tires:'Гуми',
+  chain:'Верига (мотор)', charger:'Зарядно (мотор)', inspection:'Технически преглед', glass:'Автостъкла'};
+const DATED_PRODUCTS = ['civil', 'vignette', 'casco'];   // при тях партньорът ни праща и датите на полицата
+let partnerData = {partners: [], links: [], report: []};
+
+document.getElementById('pProduct').innerHTML = Object.entries(PRODUCT_LABELS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');
+// Краткото име се предлага от името, докато не го пипнеш
+document.getElementById('pName').addEventListener('input', e=>{
+  const slugInp = document.getElementById('pSlug');
+  if(slugInp.dataset.touched) return;
+  slugInp.value = e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 30);
+});
+document.getElementById('pSlug').addEventListener('input', e=>{ e.target.dataset.touched = '1'; });
+
+const eur = n => (Number(n) || 0).toLocaleString('bg-BG', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' €';
+function shareText(l){
+  const parts = [];
+  if(Number(l.commission_eur)) parts.push(`${eur(l.commission_eur)} на продажба`);
+  if(Number(l.commission_pct)) parts.push(`${Number(l.commission_pct)}% от сумата`);
+  if(Number(l.lead_eur)) parts.push(`${eur(l.lead_eur)} на заявка`);
+  return parts.join(' + ') || 'без дял';
+}
+function goLink(l){ return `${SUPABASE_URL}/functions/v1/go?p=${l.partner}&product=${l.product}`; }
+
+// Готов текст за изпращане на партньора: как идват клиентите и как ни съобщава за заявка / покупка
+function integrationText(l, name, key){
+  const dated = DATED_PRODUCTS.includes(l.product);
+  const base = `${SUPABASE_URL}/functions/v1/partner-postback?key=${key}&cid=<номерът>&product=${l.product}`;
+  const saleExtra = l.product === 'civil' ? '&start=ГГГГ-ММ-ДД&months=12' : l.product === 'vignette' ? '&start=ГГГГ-ММ-ДД&vtype=year' : l.product === 'casco' ? '&start=ГГГГ-ММ-ДД&expiry=ГГГГ-ММ-ДД' : '';
+  const saleNote = dated
+    ? '- start е началото на новата полица: така приложението обновява датите на клиента само.' + (l.product === 'vignette' ? '\n- vtype: day | weekend | week | month | quarter | year' : '')
+    : '- amount е сумата на поръчката: нашият дял се смята от нея.';
+  return [
+    `ИНТЕГРАЦИЯ: ${name} × PARKBOOK („Моят автомобил“) — ${PRODUCT_LABELS[l.product]}`,
+    '',
+    '1. Как идват клиентите',
+    'Пращаме клиента на Вашия адрес:',
+    l.url,
+    `и добавяме към него параметър ${l.cid_param}=<номер>. Това е случаен номер на натискането, без лични данни.`,
+    'Моля, запазете този номер до края на поръчката.',
+    '',
+    `2. Как ни съобщавате за ${dated ? 'платена полица' : 'поръчка'}`,
+    'Извикайте този адрес от Вашия сървър (GET или POST):',
+    `${base}&type=sale${saleExtra}&amount=<сума в евро>`,
+    saleNote,
+    `- Ако имате само заявка (без плащане): ${base}&type=lead`,
+    '- Отговор {"ok":true} значи, че е записано. Повторно извикване със същия номер не пречи.',
+    '',
+    `Вашият ключ: ${key}`,
+    'Пазете го в тайна: с него се записват продажби на Ваше име.',
+    '',
+    '3. Ако не можете да извиквате адрес',
+    `Достатъчен е отчет веднъж месечно: брой ${dated ? 'полици' : 'поръчки'} и номерата (${l.cid_param}) към тях.`,
+    '',
+    'Лични данни не се обменят: само номер на натискането, дати и суми.'
+  ].join('\n');
+}
+
+function renderPartners(){
+  const box = document.getElementById('partnersBox');
+  const names = Object.fromEntries(partnerData.partners.map(p=>[p.slug, p]));
+  const links = partnerData.links;
+  box.innerHTML = links.length ? links.map((l, i)=>`
+    <div class="pCard ${l.active ? '' : 'off'}">
+      <b>${escapeHtml((names[l.partner] || {}).name || l.partner)}</b> · ${PRODUCT_LABELS[l.product] || l.product}${l.active ? '' : ' · неактивен'}<br>
+      <span class="url">${escapeHtml(l.url)}</span><br>
+      Наш дял: <b>${shareText(l)}</b>${l.auto_return ? ' · праща дати' : ''} · ключ: ${(names[l.partner] || {}).has_key ? 'има' : 'няма'}<br>
+      <button class="mini" data-edit="${i}">Промени</button><button class="mini" data-key="${i}">Нов ключ + инструкция</button><button class="mini" data-go="${i}">Копирай нашия линк</button>
+    </div>`).join('') : '<div style="color:var(--muted);font-size:12.5px;margin-top:10px;">Още няма партньори. Добави първия отдолу.</div>';
+
+  // Отчет по месеци: пратени → заявки → продажби → приход
+  const rep = partnerData.report;
+  if(rep.length){
+    const months = [...new Set(rep.map(r=>r.month))];
+    let grand = 0;
+    const rows = months.map(m=>{
+      const inMonth = rep.filter(r=>r.month === m);
+      const sum = inMonth.reduce((s, r)=>s + Number(r.revenue) + Number(r.reported_revenue), 0);
+      grand += sum;
+      const [y, mm] = m.split('-');
+      return `<tr class="m"><td>${mm}.${y}</td><td></td><td></td><td></td><td>${eur(sum)}</td></tr>` + inMonth.map(r=>`
+        <tr><td>${escapeHtml(r.name)}<br><span style="color:var(--muted)">${PRODUCT_LABELS[r.product] || r.product}</span></td>
+        <td>${r.clicks}</td><td>${r.leads}</td><td>${Number(r.sales) + Number(r.reported_sales)}</td>
+        <td>${eur(Number(r.revenue) + Number(r.reported_revenue))}</td></tr>`).join('');
+    }).join('');
+    box.innerHTML += `<div style="font-weight:600; font-size:13.5px; margin:16px 0 2px;">Отчет за приходите</div>
+      <table class="rep"><tr><th>Партньор</th><th>Пратени</th><th>Заявки</th><th>Продажби</th><th>Наш дял</th></tr>${rows}
+      <tr class="m"><td>Общо</td><td></td><td></td><td></td><td>${eur(grand)}</td></tr></table>
+      <div class="note">„Пратени“ = минали през нашия линк. „Продажби“ = съобщени от партньора със сигнал + въведени от месечния му отчет. „Наш дял“ е сумата за фактурата към партньора.</div>`;
+  } else if(links.length){
+    box.innerHTML += '<div class="note">Още няма натискания и продажби през партньорите.</div>';
+  }
+
+  document.getElementById('rLink').innerHTML = links.map((l, i)=>`<option value="${i}">${escapeHtml((names[l.partner] || {}).name || l.partner)} · ${PRODUCT_LABELS[l.product] || l.product}</option>`).join('');
+
+  box.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', ()=>{
+    const l = links[b.dataset.edit];
+    document.getElementById('pName').value = (names[l.partner] || {}).name || '';
+    const slugInp = document.getElementById('pSlug'); slugInp.value = l.partner; slugInp.dataset.touched = '1';
+    document.getElementById('pProduct').value = l.product;
+    document.getElementById('pUrl').value = l.url;
+    document.getElementById('pEur').value = Number(l.commission_eur) || '';
+    document.getElementById('pPct').value = Number(l.commission_pct) || '';
+    document.getElementById('pLead').value = Number(l.lead_eur) || '';
+    document.getElementById('pCid').value = l.cid_param;
+    document.getElementById('pAuto').checked = !!l.auto_return;
+    document.getElementById('pActive').checked = !!l.active;
+    document.getElementById('pName').scrollIntoView({behavior: 'smooth', block: 'center'});
+  }));
+  box.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', ()=>{
+    navigator.clipboard.writeText(goLink(links[b.dataset.go])).catch(()=>{});
+    b.textContent = 'Копирано ✓';
+  }));
+  // Нов ключ: старият спира да работи, затова питаме с второ натискане
+  box.querySelectorAll('[data-key]').forEach(b=>b.addEventListener('click', async ()=>{
+    const l = links[b.dataset.key];
+    const p = names[l.partner] || {name: l.partner};
+    if(p.has_key && !b.dataset.sure){ b.dataset.sure = '1'; b.textContent = 'Старият ключ ще спре. Натисни пак'; return; }
+    const keyBox = document.getElementById('keyBox');
+    b.disabled = true;
+    const {data} = await callAdmin({ pin: document.getElementById('pinInput').value, action: 'partner_key', slug: l.partner }).catch(()=>({data: {error: 'връзка'}}));
+    b.disabled = false;
+    if(data.error || !data.key){ keyBox.innerHTML = `<div class="errMsg">Грешка: ${escapeHtml(ADMIN_ERRORS[data.error] || data.error || 'няма ключ')}</div>`; return; }
+    p.has_key = true;
+    keyBox.innerHTML = `<div class="note"><b>Инструкция за ${escapeHtml(p.name)}</b>: изпрати му я. Ключът се показва само сега. Ако го загубиш, прави се нов.</div>
+      <textarea id="keyText" readonly></textarea><button class="copyBtn" id="keyCopy">Копирай инструкцията</button>`;
+    document.getElementById('keyText').value = integrationText(l, p.name, data.key);
+    document.getElementById('keyCopy').addEventListener('click', e=>{
+      navigator.clipboard.writeText(document.getElementById('keyText').value).catch(()=>{ document.getElementById('keyText').select(); });
+      e.target.textContent = 'Копирано ✓';
+    });
+    keyBox.scrollIntoView({behavior: 'smooth', block: 'center'});
+  }));
+}
+
+const ADMIN_ERRORS = {invalid_pin:'Грешна парола.', invalid_slug:'Краткото име: 3–30 малки латински букви, цифри или тире.', invalid_name:'Въведи име.',
+  invalid_url:'Линкът трябва да започва с https://', invalid_commission:'Делът трябва да е число.', invalid_cid_param:'Параметърът: само латински букви, цифри и _',
+  invalid_product:'Избери продукт.', unknown_partner:'Няма такъв партньор.', invalid_month:'Избери месец.', invalid_numbers:'Провери числата.'};
+async function loadPartnersAdmin(msgEl){
+  const pin = document.getElementById('pinInput').value;
+  if(!pin){ msgEl.textContent = 'Въведи паролата отгоре.'; return false; }
+  msgEl.className = 'errMsg'; msgEl.textContent = 'Зареждане…';
+  try{
+    const {res, data} = await callAdmin({ pin, action: 'partners' });
+    if(data.error || !res.ok){ msgEl.textContent = ADMIN_ERRORS[data.error] || 'Грешка: ' + (data.error || res.status); return false; }
+    partnerData = data;
+    msgEl.textContent = '';
+    renderPartners();
+    return true;
+  }catch(e){ msgEl.textContent = 'Грешка при връзка. Опитай пак.'; return false; }
+}
+document.getElementById('partnersBtn').addEventListener('click', ()=>loadPartnersAdmin(document.getElementById('partnersMsg')));
+
+document.getElementById('pSaveBtn').addEventListener('click', async ()=>{
+  const msg = document.getElementById('pSaveMsg'), btn = document.getElementById('pSaveBtn');
+  const v = id => document.getElementById(id).value.trim();
+  btn.disabled = true; msg.className = 'errMsg'; msg.textContent = 'Записване…';
+  try{
+    const {res, data} = await callAdmin({ pin: v('pinInput'), action: 'partner_save', name: v('pName'), slug: v('pSlug').toLowerCase(), product: v('pProduct'),
+      url: v('pUrl'), commission_eur: v('pEur'), commission_pct: v('pPct'), lead_eur: v('pLead'), cid_param: v('pCid') || 'cid',
+      auto_return: document.getElementById('pAuto').checked, active: document.getElementById('pActive').checked });
+    if(data.error || !res.ok) msg.textContent = ADMIN_ERRORS[data.error] || 'Грешка: ' + (data.error || res.status);
+    else { msg.className = 'okMsg'; msg.textContent = 'Записано ✓ Приложението го взима при следващо отваряне.'; await loadPartnersAdmin(document.getElementById('partnersMsg')); }
+  }catch(e){ msg.textContent = 'Грешка при връзка. Опитай пак.'; }
+  btn.disabled = false;
+});
+
+document.getElementById('rSaveBtn').addEventListener('click', async ()=>{
+  const msg = document.getElementById('rSaveMsg'), btn = document.getElementById('rSaveBtn');
+  const l = partnerData.links[document.getElementById('rLink').value];
+  msg.className = 'errMsg';
+  if(!l){ msg.textContent = 'Първо натисни „Покажи партньорите и отчета“.'; return; }
+  btn.disabled = true; msg.textContent = 'Записване…';
+  try{
+    const {res, data} = await callAdmin({ pin: document.getElementById('pinInput').value, action: 'report_add', slug: l.partner, product: l.product,
+      month: document.getElementById('rMonth').value, sales: document.getElementById('rSales').value || 0, commission_eur: document.getElementById('rTotal').value || 0 });
+    if(data.error || !res.ok) msg.textContent = ADMIN_ERRORS[data.error] || 'Грешка: ' + (data.error || res.status);
+    else { msg.className = 'okMsg'; msg.textContent = 'Отчетът е записан ✓'; await loadPartnersAdmin(document.getElementById('partnersMsg')); }
+  }catch(e){ msg.textContent = 'Грешка при връзка. Опитай пак.'; }
   btn.disabled = false;
 });
 
