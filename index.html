@@ -154,6 +154,10 @@ button{border:none; border-radius:10px; padding:12px; font-weight:700; font-size
 .partsDisc{font-size:12px; color:var(--amber); margin-top:6px;}
 .partsNote{font-size:10.5px; color:var(--muted); margin-top:5px;}
 .partsInSheet{margin-top:6px;}
+.fuelHint{font-size:11.5px; color:var(--muted); margin-top:8px;}
+.fuelList{margin-top:12px;}
+.fuelRow{display:flex; justify-content:space-between; gap:10px; background:var(--panel2); border:1px solid var(--line); border-radius:9px; padding:8px 11px; margin-top:6px; font-size:12.5px;}
+.fuelRow a{color:var(--muted); text-decoration:underline; cursor:pointer; flex-shrink:0;}
 .taxPay{margin-top:14px;}
 .taxEpay{display:block; text-align:center; text-decoration:none; padding:12px; border-radius:10px; font-weight:700; font-size:14.5px;}
 .summary .renewBtn{margin-top:8px;}
@@ -217,6 +221,8 @@ const defs = [
    labels:{date:tr('Дата','Date'),km:tr('Пробег при смяна (км)','Mileage at change (km)'),nextKm:tr('Следваща смяна (км)','Next change (km)')}},
   {id:'tires', title:tr('Смяна на гуми','Tire change'), mode:'date_soft', fields:['date','note'], premium:false,
    labels:{date:tr('Дата','Date'),note:tr('Бележка (напр. зимни / летни)','Note (e.g. winter / summer)')}},
+  // Дневник на зарежданията: списък от записи (дата, литри, сума, километраж) → среден разход и разход за месеца
+  {id:'fuel', title:tr('Зареждания','Refuelling'), mode:'fuel', fields:[], premium:false, labels:{}},
   {id:'chain', title:tr('Верига (смазване / смяна)','Chain (lube / replace)'), mode:'km', fields:['date','km','nextKm'], premium:false, only:'moto',
    labels:{date:tr('Дата','Date'),km:tr('Пробег при обслужване (км)','Mileage at service (km)'),nextKm:tr('Следващо обслужване (км)','Next service (km)')}},
   {id:'civil', title:tr('Гражданска отговорност','Liability insurance (MTPL)'), mode:'date_period', fields:['date','period'], premium:true,
@@ -541,6 +547,9 @@ function statusFor(def, data, currentKm){
   // missing — няма попълнени данни (не значи, че нещо наближава)
   // days / expiry — ползват се от лентата със статуса най-горе
   // Маслото и гумите са дневник: приложението не знае реалния пробег, затова са без цвят/срок.
+  if(def.mode==='fuel'){
+    return fuelList(data).length ? {cls:'info', label:tr('Записано','Logged')} : {cls:'info', label:tr('Няма запис','No entry'), missing:true};
+  }
   if(def.mode==='km' || def.mode==='date_soft'){
     return (rec && rec.date) ? {cls:'info', label:tr('Записано','Logged')} : {cls:'info', label:tr('Няма запис','No entry'), missing:true};
   }
@@ -573,8 +582,8 @@ function daysLabel(d){ return tr(`${d} дни`, d===1 ? '1 day' : `${d} days`); 
 
 // ==== Лентата със статуса най-горе — казва КАКВО наближава, а когато всичко е наред, е приятелска ====
 const SHORT_NAMES = LANG === 'en'
-  ? {oil:'Oil', tires:'Tires', chain:'Chain', civil:'Liability insurance', vignette:'Vignette', inspection:'Inspection', casco:'Casco', tax:'Vehicle tax'}
-  : {oil:'Маслото', tires:'Гумите', chain:'Веригата', civil:'Гражданската', vignette:'Винетката', inspection:'Прегледът', casco:'Каското', tax:'Данъкът'};
+  ? {oil:'Oil', tires:'Tires', chain:'Chain', civil:'Liability insurance', vignette:'Vignette', inspection:'Inspection', casco:'Casco', tax:'Vehicle tax', fuel:'Refuelling'}
+  : {oil:'Маслото', tires:'Гумите', chain:'Веригата', civil:'Гражданската', vignette:'Винетката', inspection:'Прегледът', casco:'Каското', tax:'Данъкът', fuel:'Зарежданията'};
 // ==== Репликите на талисмана — приятелски и леко нахален тон (като Duolingo), никога обиден ====
 // {x} се заменя с най-спешното, напр. „гражданската изтича след 4 дни“. Репликата на деня се сменя всеки ден,
 // а при натискане на колата излиза друга (от същото настроение или от TAP_LINES).
@@ -798,6 +807,14 @@ function detailFor(def, data){
     if(st.unknown) return tr('Отбележи какво си платил тази година — ще ти напомняме за сроковете', 'Mark what you paid this year — we will remind you of the deadlines');
     return tr('Целият до 30.04 с 5% отстъпка · или на две вноски: 30.06 и 31.10', 'Full by 30.04 with 5% off · or two instalments: 30.06 and 31.10');
   }
+  if(def.mode==='fuel'){
+    const st = fuelStats(data);
+    if(!st.last) return tr('Записвай зарежданията — ще видиш разхода си', 'Log your refuels to see your consumption');
+    const parts = [`${tr('Последно','Last')}: ${fmtDate(st.last.date)} · ${num1(st.last.liters)} ${tr('л','L')}${st.last.cost ? ' · ' + money(st.last.cost) : ''}`];
+    if(st.avg) parts.push(`${tr('среден разход','average')} ${num1(st.avg)} ${tr('л/100 км','L/100 km')}`);
+    if(st.month) parts.push(`${tr('този месец','this month')} ${money(st.month)}`);
+    return parts.join(' · ');
+  }
   if(!rec || !rec.date) return tr('Няма въведени данни', 'No data entered');
   if(def.mode==='date_period'){
     if(!rec.period) return fmtDate(rec.date);
@@ -899,7 +916,7 @@ function renderMain(){
     return `<div class="item" data-id="${def.id}">
       <div class="item-top"><div class="item-title">${def.title}</div><div class="status ${s.cls}">${s.label}</div></div>
       <div class="item-detail">${detailFor(def, data)}</div>
-      ${renew}${parts}${def.id==='tax' && s.cls!=='ok' ? `<button class="renewBtn ${hot ? 'hot' : ''}" type="button" data-tax-pay>${tr('Плати данъка','Pay the tax')} →</button>` : ''}
+      ${renew}${bookHtml(def, hot)}${parts}${def.id==='tax' && s.cls!=='ok' ? `<button class="renewBtn ${hot ? 'hot' : ''}" type="button" data-tax-pay>${tr('Плати данъка','Pay the tax')} →</button>` : ''}
     </div>`;
   }).join('');
 
@@ -936,6 +953,9 @@ function renderMain(){
     ${unlockBlock}
   `;
 
+  box.querySelectorAll('[data-book]').forEach(btn=>{
+    btn.addEventListener('click', e=>{ e.stopPropagation(); openBooking(btn.dataset.book); });
+  });
   box.querySelectorAll('[data-tax-pay]').forEach(btn=>{
     btn.addEventListener('click', e=>{ e.stopPropagation(); openTaxPay(car.id); });
   });
@@ -1200,7 +1220,75 @@ function renderLangSwitch(){
   box.querySelectorAll('[data-lang]').forEach(b=>b.addEventListener('click', ()=>{ if(b.dataset.lang !== LANG) setLang(b.dataset.lang); }));
 }
 
+// ==== Дневник на зарежданията ====
+// Пази се в data.fuel.list. Средният разход се смята между първото и последното зареждане с километраж
+// (приемаме пълен резервоар): литрите след първото / изминатите км × 100.
+function fuelList(data){ return ((data.fuel && data.fuel.list) || []).slice().sort((a, b)=>a.date < b.date ? -1 : a.date > b.date ? 1 : (a.km || 0) - (b.km || 0)); }
+function fuelStats(data){
+  const list = fuelList(data);
+  if(!list.length) return {};
+  const withKm = list.filter(e=>e.km > 0);
+  let avg = null;
+  if(withKm.length >= 2){
+    const dist = withKm[withKm.length - 1].km - withKm[0].km;
+    const liters = withKm.slice(1).reduce((s, e)=>s + e.liters, 0);
+    if(dist > 0 && liters > 0) avg = liters / dist * 100;
+  }
+  const ym = todayISO().slice(0, 7);
+  const month = list.filter(e=>e.date.slice(0, 7) === ym).reduce((s, e)=>s + (e.cost || 0), 0);
+  return {last: list[list.length - 1], avg, month, count: list.length};
+}
+function num1(v){ return (Math.round(v * 10) / 10).toLocaleString(tr('bg-BG','en-GB')); }
+function money(v){ return (Math.round(v * 100) / 100).toLocaleString(tr('bg-BG','en-GB'), {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' €'; }
+
+function openFuelSheet(carId){
+  const car = cars.find(c=>c.id===carId);
+  const list = fuelList(getData(carId));
+  const rows = list.slice(-5).reverse().map(e=>`
+    <div class="fuelRow"><span>${fmtDate(e.date)} · ${num1(e.liters)} ${tr('л','L')}${e.cost ? ' · ' + money(e.cost) : ''}${e.km ? ' · ' + e.km.toLocaleString(tr('bg-BG','en-GB')) + tr(' км',' km') : ''}</span><a data-del="${e.id}">${tr('изтрий','delete')}</a></div>`).join('');
+  document.getElementById('sheetTitle').textContent = tr('Ново зареждане', 'New refuel');
+  document.getElementById('sheetFields').innerHTML = `
+    <label>${tr('Дата','Date')}</label><input data-f="date" type="date" value="${todayISO()}">
+    <div class="row2">
+      <div><label>${tr('Литри','Litres')}</label><input data-f="liters" type="number" inputmode="decimal" step="0.01" placeholder="45"></div>
+      <div><label>${tr('Сума (€)','Amount (€)')}</label><input data-f="cost" type="number" inputmode="decimal" step="0.01" placeholder="68"></div>
+    </div>
+    <label>${tr('Километраж при зареждането','Odometer at refuel')}</label><input data-f="km" type="number" inputmode="numeric" placeholder="${(car && car.km) || 142300}">
+    <div class="fuelHint">${tr('С километража от две зареждания смятаме средния разход.', 'With the odometer from two refuels we work out your average consumption.')}</div>
+    ${rows ? `<div class="fuelList"><div class="fuelHint">${tr('Последни зареждания','Recent refuels')}</div>${rows}</div>` : ''}`;
+  document.querySelectorAll('#sheetFields [data-del]').forEach(a=>a.addEventListener('click', ()=>{
+    const data = getData(carId);
+    data.fuel = {list: fuelList(data).filter(e=>String(e.id) !== a.dataset.del)};
+    saveData(carId, data);
+    renderMain();
+    openFuelSheet(carId);
+  }));
+  document.getElementById('overlay').style.display='flex';
+  document.getElementById('overlay').dataset.editing = 'fuel';
+  document.getElementById('overlay').dataset.carId = carId;
+}
+
+// ==== Бутон „Запиши час“ / „Спукано стъкло?“ към партньор ====
+// Показва се само когато има активен партньор за продукта (или в демо режим): преглед → inspection,
+// смяна на масло → service (сервиз), каско → glass (автостъкла). Отваря сайта му през нашия линк за препращане.
+const BOOK_BUTTONS = {
+  inspection: {product:'inspection', label:tr('Запиши час за преглед','Book an inspection')},
+  oil:        {product:'service',    label:tr('Запиши час в сервиз','Book a service')},
+  casco:      {product:'glass',      label:tr('Спукано стъкло?','Cracked glass?')}
+};
+function bookHtml(def, hot){
+  const b = BOOK_BUTTONS[def.id];
+  if(!b || !(SERVER_PARTNERS[b.product] || DEMO_MODE)) return '';
+  return `<button class="renewBtn ${hot && def.id==='inspection' ? 'hot' : ''}" type="button" data-book="${b.product}">${b.label} →</button>`;
+}
+function openBooking(product){
+  const partner = SERVER_PARTNERS[product];
+  if(!partner){ showToast(tr('Демо: тук клиентът отива на вашия сайт с нашия номер в линка.', 'Demo: here the customer goes to your website with our number in the link.')); return; }
+  window.open(goUrl(partner, product, newCid()), '_blank', 'noopener');
+}
+
 function openSheet(id, carId){
+  if(id === 'fuel'){ openFuelSheet(carId); return; }
   const def = defs.find(d=>d.id===id);
   const data = getData(carId);
   const rec = data[id] || {};
@@ -1342,6 +1430,21 @@ document.getElementById('saveBtn').addEventListener('click', ()=>{
   } else {
     const carId = document.getElementById('overlay').dataset.carId;
     const data = getData(carId);
+    if(editing === 'fuel'){
+      const liters = parseFloat(String(vals.liters).replace(',', '.'));
+      if(liters > 0 && /^\d{4}-\d{2}-\d{2}$/.test(vals.date || '')){
+        const km = parseInt(vals.km, 10) || 0;
+        const entry = {id: Date.now(), date: vals.date, liters, cost: parseFloat(String(vals.cost).replace(',', '.')) || 0, km};
+        data.fuel = {list: [...fuelList(data), entry]};
+        saveData(carId, data);
+        // Километражът от зареждането обновява и текущия пробег на колата
+        const car = cars.find(c=>c.id===carId);
+        if(car && km > (car.km || 0)){ car.km = km; saveCars(); }
+      }
+      renderMain();
+      document.getElementById('overlay').style.display='none';
+      return;
+    }
     if(editing === 'tax'){
       vals.year = today.getUTCFullYear();
       // Кога е платен целият данък — за медала „Данъци навреме“ (до 30.04 с отстъпката)
