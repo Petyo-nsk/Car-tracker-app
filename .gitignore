@@ -9,3 +9,6 @@ business/
 .DS_Store
 Thumbs.db
 node_modules/
+
+# Сглобени файлове за мобилното приложение (правят се с npm run build)
+www/
