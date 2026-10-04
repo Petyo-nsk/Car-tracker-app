@@ -145,6 +145,10 @@ input:focus,select:focus{outline:none; border-color:var(--amber);}
 button{border:none; border-radius:10px; padding:12px; font-weight:700; font-size:14.5px; cursor:pointer; font-family:inherit;}
 .save{flex:1; background:var(--amber); color:#1a1305;}
 .cancel{flex:1; background:var(--panel2); color:var(--ink); border:1px solid var(--line);}
+#renewBody .cancel, #renewBody .unlockBtn{width:100%; display:block;}
+.subNote{font-size:12.5px; color:var(--muted); line-height:1.5; margin:0 0 14px;}
+.subNote a{color:var(--muted);}
+.subMsg{font-size:12.5px; color:var(--red); min-height:16px; margin:2px 0 8px;}
 .emptyState{background:var(--panel); border:1px dashed var(--line); border-radius:16px; padding:28px 20px; text-align:center;}
 .emptyState .big{font-size:32px; margin-bottom:10px;}
 .emptyState p{color:var(--muted); font-size:13.5px; margin:0 0 16px;}
@@ -995,6 +999,8 @@ function renderMain(){
   });
   const unlockBtn = document.getElementById('unlockBtn');
   if(unlockBtn) unlockBtn.addEventListener('click', ()=>{
+    // В приложението за телефон — истинско плащане през магазина (RevenueCat)
+    if(isNativeApp()){ openStoreSubscribe(); return; }
     grantPremiumPaid();
     premiumStatus = getPremiumStatus();
     isPremium = premiumStatus.active;
@@ -1325,6 +1331,114 @@ function scheduleReminders(){
       await LN.schedule({notifications: list});
     }catch(e){}
   }, 800);
+}
+
+// ==== Абонамент през Google Play / App Store (RevenueCat) — само в мобилното приложение ====
+// Ключовете са публичните „SDK ключове“ от RevenueCat (Project → API keys) — безопасно е да стоят тук.
+// Докато са празни, бутонът „Абонирай се“ в приложението НЕ отключва нищо (без безплатен премиум в магазина).
+// В RevenueCat: entitlement с идентификатор „premium“; offering по подразбиране с пакети „Monthly“ и „Annual“.
+const RC_KEYS = {android: '', ios: ''};
+const RC_ENTITLEMENT = 'premium';
+const STORE_SUB_KEY = 'car-tracker-store-sub-v1';   // '1', ако премиумът идва от абонамент в магазина
+function isNativeApp(){ const C = window.Capacitor; return !!(C && C.isNativePlatform && C.isNativePlatform()); }
+function rcPlugin(){
+  const C = window.Capacitor;
+  if(!isNativeApp() || !C.Plugins || !C.Plugins.Purchases) return null;
+  return RC_KEYS[C.getPlatform()] ? C.Plugins.Purchases : null;
+}
+let rcReady = null;
+function rcInit(){
+  const P = rcPlugin();
+  if(!P) return Promise.resolve(null);
+  if(!rcReady){
+    // Анонимният номер на устройството е и номерът на клиента в RevenueCat — без имейл и имена
+    rcReady = P.configure({apiKey: RC_KEYS[window.Capacitor.getPlatform()], appUserID: getDeviceId()})
+      .then(()=>P).catch(e=>{ rcReady = null; throw e; });
+  }
+  return rcReady;
+}
+// Записва какво казва магазинът: активен абонамент → премиум; спрян абонамент → махаме премиума от магазина.
+// Не пипа премиума от промо код.
+function applyCustomerInfo(info){
+  const active = !!(info && info.entitlements && info.entitlements.active && info.entitlements.active[RC_ENTITLEMENT]);
+  let fromStore = false;
+  try{ fromStore = localStorage.getItem(STORE_SUB_KEY) === '1'; }catch(e){}
+  if(active){
+    grantPremiumPaid();
+    try{ localStorage.setItem(STORE_SUB_KEY, '1'); }catch(e){}
+  } else if(fromStore){
+    try{ localStorage.removeItem(STORE_SUB_KEY); localStorage.removeItem(PREMIUM_UNTIL_KEY); }catch(e){}
+  }
+  premiumStatus = getPremiumStatus();
+  isPremium = premiumStatus.active;
+  return active;
+}
+// При всяко отваряне — проверка на абонамента в магазина
+async function syncStoreSubscription(){
+  try{
+    const P = await rcInit();
+    if(!P) return;
+    const {customerInfo} = await P.getCustomerInfo();
+    const before = isPremium;
+    applyCustomerInfo(customerInfo);
+    if(before !== isPremium) renderAll();
+  }catch(e){}   // няма интернет — остава последното известно състояние
+}
+async function openStoreSubscribe(){
+  const ov = document.getElementById('renewOverlay');
+  document.getElementById('renewTitle').textContent = tr('Премиум абонамент', 'Premium subscription');
+  const body = document.getElementById('renewBody');
+  body.innerHTML = `<p class="subNote">${tr('Зареждам цените…', 'Loading prices…')}</p>`;
+  ov.style.display = 'flex';
+  const close = ()=>{ ov.style.display = 'none'; };
+  let P;
+  try{ P = await rcInit(); }catch(e){}
+  if(!P){
+    body.innerHTML = `<p class="subNote">${tr('Плащанията през магазина още се настройват. Междувременно ползвай безплатния месец или промо код.', 'Store payments are still being set up. Meanwhile use the free month or a promo code.')}</p><button class="cancel" type="button" id="subClose">${tr('Затвори','Close')}</button>`;
+    document.getElementById('subClose').addEventListener('click', close);
+    return;
+  }
+  let pkgs = [];
+  try{
+    const offerings = await P.getOfferings();
+    pkgs = (offerings.current && offerings.current.availablePackages) || [];
+  }catch(e){}
+  const order = {ANNUAL: 0, MONTHLY: 1};
+  pkgs = pkgs.filter(p=>p.packageType in order).sort((a, b)=>order[a.packageType] - order[b.packageType]);
+  const label = p => p.packageType === 'ANNUAL'
+    ? tr(`Годишен — ${p.product.priceString}/година`, `Annual — ${p.product.priceString}/year`)
+    : tr(`Месечен — ${p.product.priceString}/месец`, `Monthly — ${p.product.priceString}/month`);
+  body.innerHTML = `
+    <p class="subNote">${tr('Всички документи и напомняния, до 10 коли. Абонаментът се подновява автоматично; спираш го по всяко време от Google Play / App Store.', 'All documents and reminders, up to 10 cars. Renews automatically; cancel any time in Google Play / the App Store.')}</p>
+    ${pkgs.length ? pkgs.map((p, i)=>`<button class="unlockBtn" type="button" data-pkg="${i}" style="margin-bottom:10px;">${label(p)}</button>`).join('')
+                  : `<p class="subNote">${tr('Няма връзка с магазина. Опитай пак по-късно.', 'Could not reach the store. Please try again later.')}</p>`}
+    <div class="subMsg" id="subMsg"></div>
+    <button class="cancel" type="button" id="subRestore" style="margin-top:4px;">${tr('Възстанови покупките', 'Restore purchases')}</button>
+    <button class="cancel" type="button" id="subClose" style="margin-top:8px;">${tr('Затвори','Close')}</button>
+    <p class="subNote" style="margin-top:12px;"><a href="terms.html">${tr('Общи условия','Terms of Use')}</a> · <a href="privacy.html">${tr('Поверителност','Privacy')}</a></p>`;
+  const msg = document.getElementById('subMsg');
+  const done = ok=>{
+    if(ok){ close(); renderAll(); showToast(tr('Премиумът е отключен. Благодарим! 🎉', 'Premium unlocked. Thank you! 🎉')); }
+  };
+  body.querySelectorAll('[data-pkg]').forEach(btn=>btn.addEventListener('click', async ()=>{
+    msg.textContent = '';
+    try{
+      const res = await P.purchasePackage({aPackage: pkgs[+btn.dataset.pkg]});
+      done(applyCustomerInfo(res.customerInfo));
+    }catch(e){
+      const cancelled = e && (e.userCancelled || String(e.code) === '1');
+      if(!cancelled) msg.textContent = tr('Плащането не мина. Опитай пак.', 'The payment did not go through. Please try again.');
+    }
+  }));
+  document.getElementById('subRestore').addEventListener('click', async ()=>{
+    msg.textContent = '';
+    try{
+      const {customerInfo} = await P.restorePurchases();
+      if(applyCustomerInfo(customerInfo)) done(true);
+      else msg.textContent = tr('Не намерихме активен абонамент за този акаунт в магазина.', 'No active subscription found for this store account.');
+    }catch(e){ msg.textContent = tr('Няма връзка с магазина. Опитай пак.', 'Could not reach the store. Please try again.'); }
+  });
+  document.getElementById('subClose').addEventListener('click', close);
 }
 
 function renderAll(){ renderLangSwitch(); renderSwitcher(); renderMain(); renderLegal(); scheduleReminders(); }
@@ -1802,6 +1916,7 @@ applyReturnFromPartner();
 renderAll();
 checkPendingRenew();
 loadPartners();
+syncStoreSubscription();
 
 // PWA — позволява „Добави към началния екран“ и работа без интернет
 if('serviceWorker' in navigator){
