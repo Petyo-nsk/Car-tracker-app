@@ -22,6 +22,12 @@ allprojects {
         google()
         mavenCentral()
     }
+    // Проектът е в OneDrive — временните файлове от build-а отиват извън него,
+    // иначе OneDrive ги заключва (AccessDeniedException) и ги качва в облака без нужда.
+    def localAppData = System.getenv('LOCALAPPDATA')
+    if (localAppData) {
+        layout.buildDirectory = new File(localAppData, "car-tracker-build/${project.name}")
+    }
 }
 
 task clean(type: Delete) {

@@ -452,7 +452,7 @@ try{
   activeId = localStorage.getItem(ACTIVE_KEY) || (cars[0] && cars[0].id);
 }catch(e){ cars = []; }
 
-function saveCars(){ try{ localStorage.setItem(CARS_KEY, JSON.stringify(cars)); }catch(e){} }
+function saveCars(){ try{ localStorage.setItem(CARS_KEY, JSON.stringify(cars)); }catch(e){} scheduleReminders(); }
 function saveActive(){ try{ localStorage.setItem(ACTIVE_KEY, activeId); }catch(e){} }
 
 function getData(carId){
@@ -470,7 +470,7 @@ function getData(carId){
   }
   return {};
 }
-function saveData(carId, data){ try{ localStorage.setItem(DATA_PREFIX+carId, JSON.stringify(data)); }catch(e){} }
+function saveData(carId, data){ try{ localStorage.setItem(DATA_PREFIX+carId, JSON.stringify(data)); }catch(e){} scheduleReminders(); }
 
 function daysUntil(dateStr){
   if(!dateStr) return null;
@@ -1221,7 +1221,72 @@ function renderLegal(){
     `<a href="privacy.html">${tr('Поверителност','Privacy')}</a> · <a href="terms.html">${tr('Общи условия','Terms of Use')}</a>`;
 }
 
-function renderAll(){ renderLangSwitch(); renderSwitcher(); renderMain(); renderLegal(); }
+// ==== Напомняния на телефона (само в мобилното приложение, Capacitor) ====
+// По едно известие 7 дни преди изтичане на гражданска, винетка, преглед и каско — за всяка кола, в 10:00.
+// Без сървър: телефонът ги пази сам. При всяка промяна старите се махат и се планират наново.
+// Документите са премиум, затова и напомнянията са само при премиум/пробен период. Лимит в iOS: 64 чакащи.
+const REMIND_IDS = ['civil', 'vignette', 'inspection', 'casco'];
+const REMIND_DAYS_BEFORE = 7;
+function notifPlugin(){
+  const C = window.Capacitor;
+  return C && C.isNativePlatform && C.isNativePlatform() && C.Plugins ? C.Plugins.LocalNotifications : null;
+}
+// Числов номер на известието (кола + документ), за да не се дублират
+function remindId(carId, defId){
+  let h = 0;
+  for(const ch of carId + ':' + defId) h = (h * 31 + ch.charCodeAt(0)) | 0;
+  return Math.abs(h) % 2000000000 + 1;
+}
+function plannedReminders(){
+  if(!hasFullAccess()) return [];
+  const out = [];
+  const nowMs = Date.now();
+  cars.forEach(car=>{
+    // Примерните данни на първата кола (преди човек да е въвел нещо) не се напомнят
+    let raw = null;
+    try{ raw = localStorage.getItem(DATA_PREFIX + car.id); }catch(e){}
+    if(!raw) return;
+    const data = getData(car.id);
+    defsFor(car).filter(d=>REMIND_IDS.includes(d.id)).forEach(def=>{
+      const st = statusFor(def, data, car.km);
+      if(!st.expiry || st.missing) return;
+      const [y, m, d] = st.expiry.split('-').map(Number);
+      const at = new Date(y, m - 1, d - REMIND_DAYS_BEFORE, 10, 0, 0);
+      if(at.getTime() <= nowMs) return;
+      const name = SHORT_NAMES[def.id];
+      out.push({
+        id: remindId(car.id, def.id),
+        title: tr(`${name} изтича след ${REMIND_DAYS_BEFORE} дни`, `${name} expires in ${REMIND_DAYS_BEFORE} days`),
+        body: tr(`${car.name} — до ${fmtDate(st.expiry)}. Отвори приложението, за да подновиш навреме.`,
+                 `${car.name} — until ${fmtDate(st.expiry)}. Open the app to renew in time.`),
+        schedule: {at, allowWhileIdle: true},
+        smallIcon: 'ic_stat_car',
+        iconColor: '#E8A33D'
+      });
+    });
+  });
+  return out;
+}
+var remindTimer = null;   // var: saveCars/saveData може да се извикат още при зареждане, преди този ред
+function scheduleReminders(){
+  const LN = notifPlugin();
+  if(!LN) return;
+  clearTimeout(remindTimer);
+  remindTimer = setTimeout(async ()=>{
+    try{
+      const list = plannedReminders();
+      const pending = await LN.getPending();
+      if(pending.notifications.length) await LN.cancel({notifications: pending.notifications.map(n=>({id: n.id}))});
+      if(!list.length) return;
+      let perm = await LN.checkPermissions();
+      if(perm.display === 'prompt' || perm.display === 'prompt-with-rationale') perm = await LN.requestPermissions();
+      if(perm.display !== 'granted') return;
+      await LN.schedule({notifications: list});
+    }catch(e){}
+  }, 800);
+}
+
+function renderAll(){ renderLangSwitch(); renderSwitcher(); renderMain(); renderLegal(); scheduleReminders(); }
 
 // Превключвател на езика горе вдясно
 function renderLangSwitch(){
