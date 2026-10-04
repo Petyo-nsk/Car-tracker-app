@@ -149,6 +149,8 @@ button{border:none; border-radius:10px; padding:12px; font-weight:700; font-size
 .subNote{font-size:12.5px; color:var(--muted); line-height:1.5; margin:0 0 14px;}
 .subNote a{color:var(--muted);}
 .subMsg{font-size:12.5px; color:var(--red); min-height:16px; margin:2px 0 8px;}
+.storeBtn{text-align:center; text-decoration:none; margin-bottom:10px; box-sizing:border-box;}
+.storeBtn.soon{opacity:.5; cursor:default;}
 .emptyState{background:var(--panel); border:1px dashed var(--line); border-radius:16px; padding:28px 20px; text-align:center;}
 .emptyState .big{font-size:32px; margin-bottom:10px;}
 .emptyState p{color:var(--muted); font-size:13.5px; margin:0 0 16px;}
@@ -1000,11 +1002,8 @@ function renderMain(){
   const unlockBtn = document.getElementById('unlockBtn');
   if(unlockBtn) unlockBtn.addEventListener('click', ()=>{
     // В приложението за телефон — истинско плащане през магазина (RevenueCat)
-    if(isNativeApp()){ openStoreSubscribe(); return; }
-    grantPremiumPaid();
-    premiumStatus = getPremiumStatus();
-    isPremium = premiumStatus.active;
-    renderAll();
+    // В браузъра — няма плащане; насочваме към приложението в магазина
+    if(isNativeApp()) openStoreSubscribe(); else openWebSubscribe();
   });
   const applyPromoBtn = document.getElementById('applyPromoBtn');
   if(applyPromoBtn) applyPromoBtn.addEventListener('click', async ()=>{
@@ -1439,6 +1438,27 @@ async function openStoreSubscribe(){
     }catch(e){ msg.textContent = tr('Няма връзка с магазина. Опитай пак.', 'Could not reach the store. Please try again.'); }
   });
   document.getElementById('subClose').addEventListener('click', close);
+}
+
+// Уеб версията: абонаментът се плаща само в приложението за телефон.
+// Когато приложението излезе в Google Play / App Store — сложи true, за да станат бутоните линкове.
+const PLAY_URL = 'https://play.google.com/store/apps/details?id=com.parkbook.moyatavtomobil';
+const PLAY_PUBLISHED = false;
+const APPSTORE_URL = '';   // напр. https://apps.apple.com/app/id…, когато има
+function openWebSubscribe(){
+  const ov = document.getElementById('renewOverlay');
+  document.getElementById('renewTitle').textContent = tr('Премиум абонамент', 'Premium subscription');
+  const store = (name, url) => url
+    ? `<a class="unlockBtn storeBtn" href="${url}" target="_blank" rel="noopener">${tr(`Изтегли от ${name}`, `Get it on ${name}`)} →</a>`
+    : `<div class="unlockBtn storeBtn soon">${name} — ${tr('скоро', 'coming soon')}</div>`;
+  document.getElementById('renewBody').innerHTML = `
+    <p class="subNote">${tr('Абонаментът (0,99 €/месец или 9,99 €/година) се плаща в приложението „Моят автомобил“ за телефон — сигурно, през Google Play или App Store. Там получаваш и напомняния 7 дни и 1 ден преди изтичане.', 'The subscription (€0.99/month or €9.99/year) is paid in the “My Car” phone app — securely, through Google Play or the App Store. The app also sends reminders 7 days and 1 day before expiry.')}</p>
+    ${store('Google Play', PLAY_PUBLISHED ? PLAY_URL : '')}
+    ${store('App Store', APPSTORE_URL)}
+    <p class="subNote" style="margin-top:4px;">${tr('Имаш промо код? Въведи го в полето „Промокод“.', 'Have a promo code? Enter it in the “Promo code” field.')}</p>
+    <button class="cancel" type="button" id="subClose">${tr('Затвори','Close')}</button>`;
+  ov.style.display = 'flex';
+  document.getElementById('subClose').addEventListener('click', ()=>{ ov.style.display = 'none'; });
 }
 
 function renderAll(){ renderLangSwitch(); renderSwitcher(); renderMain(); renderLegal(); scheduleReminders(); }
