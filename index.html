@@ -1222,20 +1222,39 @@ function renderLegal(){
 }
 
 // ==== Напомняния на телефона (само в мобилното приложение, Capacitor) ====
-// По едно известие 7 дни преди изтичане на гражданска, винетка, преглед и каско — за всяка кола, в 10:00.
+// Две известия — 7 дни и 1 ден преди изтичане на гражданска, винетка, преглед и каско — за всяка кола, в 10:00.
 // Без сървър: телефонът ги пази сам. При всяка промяна старите се махат и се планират наново.
-// Документите са премиум, затова и напомнянията са само при премиум/пробен период. Лимит в iOS: 64 чакащи.
+// Документите са премиум, затова и напомнянията са само при премиум/пробен период. Лимит в iOS: 64 чакащи
+// (пазим най-близките 60).
 const REMIND_IDS = ['civil', 'vignette', 'inspection', 'casco'];
-const REMIND_DAYS_BEFORE = 7;
+const REMIND_DAYS_BEFORE = [7, 1];
+const REMIND_MAX = 60;
+const TEST_NOTIF_ID = 1;   // тестовото известие (5 натискания на заглавието)
 function notifPlugin(){
   const C = window.Capacitor;
   return C && C.isNativePlatform && C.isNativePlatform() && C.Plugins ? C.Plugins.LocalNotifications : null;
 }
-// Числов номер на известието (кола + документ), за да не се дублират
-function remindId(carId, defId){
+// Числов номер на известието (кола + документ + колко дни преди), за да не се дублират
+function remindId(carId, defId, daysBefore){
   let h = 0;
-  for(const ch of carId + ':' + defId) h = (h * 31 + ch.charCodeAt(0)) | 0;
-  return Math.abs(h) % 2000000000 + 1;
+  for(const ch of carId + ':' + defId + ':' + daysBefore) h = (h * 31 + ch.charCodeAt(0)) | 0;
+  return Math.abs(h) % 2000000000 + 2;
+}
+function remindText(name, carName, expiry, daysBefore){
+  const title = daysBefore === 1
+    ? tr(`${name} изтича утре!`, `${name} expires tomorrow!`)
+    : tr(`${name} изтича след ${daysBefore} дни`, `${name} expires in ${daysBefore} days`);
+  const body = daysBefore === 1
+    ? tr(`${carName} — до ${fmtDate(expiry)}. Поднови днес, за да не караш без документ.`,
+         `${carName} — until ${fmtDate(expiry)}. Renew today so you don't drive without it.`)
+    : tr(`${carName} — до ${fmtDate(expiry)}. Отвори приложението, за да подновиш навреме.`,
+         `${carName} — until ${fmtDate(expiry)}. Open the app to renew in time.`);
+  return {title, body};
+}
+async function notifPermissionOk(LN){
+  let perm = await LN.checkPermissions();
+  if(perm.display === 'prompt' || perm.display === 'prompt-with-rationale') perm = await LN.requestPermissions();
+  return perm.display === 'granted';
 }
 function plannedReminders(){
   if(!hasFullAccess()) return [];
@@ -1251,22 +1270,45 @@ function plannedReminders(){
       const st = statusFor(def, data, car.km);
       if(!st.expiry || st.missing) return;
       const [y, m, d] = st.expiry.split('-').map(Number);
-      const at = new Date(y, m - 1, d - REMIND_DAYS_BEFORE, 10, 0, 0);
-      if(at.getTime() <= nowMs) return;
-      const name = SHORT_NAMES[def.id];
-      out.push({
-        id: remindId(car.id, def.id),
-        title: tr(`${name} изтича след ${REMIND_DAYS_BEFORE} дни`, `${name} expires in ${REMIND_DAYS_BEFORE} days`),
-        body: tr(`${car.name} — до ${fmtDate(st.expiry)}. Отвори приложението, за да подновиш навреме.`,
-                 `${car.name} — until ${fmtDate(st.expiry)}. Open the app to renew in time.`),
-        schedule: {at, allowWhileIdle: true},
-        smallIcon: 'ic_stat_car',
-        iconColor: '#E8A33D'
+      REMIND_DAYS_BEFORE.forEach(before=>{
+        const at = new Date(y, m - 1, d - before, 10, 0, 0);
+        if(at.getTime() <= nowMs) return;
+        out.push({
+          id: remindId(car.id, def.id, before),
+          ...remindText(SHORT_NAMES[def.id], car.name, st.expiry, before),
+          schedule: {at, allowWhileIdle: true},
+          smallIcon: 'ic_stat_car',
+          iconColor: '#E8A33D'
+        });
       });
     });
   });
-  return out;
+  return out.sort((a, b)=>a.schedule.at - b.schedule.at).slice(0, REMIND_MAX);
 }
+// Скрит тест: 5 бързи натискания на „Моят автомобил“ горе → известие след 10 секунди
+async function sendTestNotification(){
+  const LN = notifPlugin();
+  if(!LN){ showToast(tr('Известията работят само в приложението за телефон.', 'Notifications only work in the phone app.')); return; }
+  try{
+    if(!await notifPermissionOk(LN)){ showToast(tr('Известията са забранени — разреши ги в настройките на телефона.', 'Notifications are blocked — allow them in the phone settings.')); return; }
+    await LN.schedule({notifications: [{
+      id: TEST_NOTIF_ID,
+      ...remindText(SHORT_NAMES.civil, tr('Тест', 'Test'), addDays(todayISO(), 1), 1),
+      schedule: {at: new Date(Date.now() + 10000), allowWhileIdle: true},
+      smallIcon: 'ic_stat_car',
+      iconColor: '#E8A33D'
+    }]});
+    const n = plannedReminders().length;
+    showToast(tr(`Тестово известие след 10 секунди. Планирани напомняния: ${n}.`, `Test notification in 10 seconds. Scheduled reminders: ${n}.`));
+  }catch(e){ showToast(tr('Грешка при известието: ', 'Notification error: ') + (e && e.message || e)); }
+}
+let brandTaps = [];
+function onBrandTap(){
+  const t = Date.now();
+  brandTaps = brandTaps.filter(x=>t - x < 2000).concat(t);
+  if(brandTaps.length >= 5){ brandTaps = []; sendTestNotification(); }
+}
+document.getElementById('brandName').addEventListener('click', onBrandTap);
 var remindTimer = null;   // var: saveCars/saveData може да се извикат още при зареждане, преди този ред
 function scheduleReminders(){
   const LN = notifPlugin();
@@ -1276,11 +1318,10 @@ function scheduleReminders(){
     try{
       const list = plannedReminders();
       const pending = await LN.getPending();
-      if(pending.notifications.length) await LN.cancel({notifications: pending.notifications.map(n=>({id: n.id}))});
+      const old = pending.notifications.filter(n=>n.id !== TEST_NOTIF_ID);
+      if(old.length) await LN.cancel({notifications: old.map(n=>({id: n.id}))});
       if(!list.length) return;
-      let perm = await LN.checkPermissions();
-      if(perm.display === 'prompt' || perm.display === 'prompt-with-rationale') perm = await LN.requestPermissions();
-      if(perm.display !== 'granted') return;
+      if(!await notifPermissionOk(LN)) return;
       await LN.schedule({notifications: list});
     }catch(e){}
   }, 800);
