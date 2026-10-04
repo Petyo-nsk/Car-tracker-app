@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Политика за поверителност — Моят автомобил</title>
+<meta name="theme-color" content="#14171c">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<style>
+:root{ --bg:#14171c; --panel:#1c2028; --line:#2b303a; --ink:#edeef0; --muted:#8b93a1; --amber:#e8a33d; }
+*{box-sizing:border-box;}
+body{margin:0; background:var(--bg); color:var(--ink); font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
+.wrap{max-width:720px; margin:0 auto; padding:24px 16px 64px;}
+h1{font-size:1.6rem; line-height:1.25; margin:0 0 4px;}
+h2{font-size:1.1rem; margin:28px 0 8px; color:var(--amber);}
+p,li{color:var(--ink);} .muted{color:var(--muted); font-size:.9rem;}
+ul{padding-left:1.2rem;} li{margin:4px 0;}
+a{color:var(--amber);}
+.box{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin:16px 0;}
+.lang{display:flex; gap:8px; justify-content:flex-end; margin-bottom:12px;}
+.lang button{background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:6px 12px; font:inherit; font-size:.85rem; cursor:pointer;}
+.lang button[aria-pressed="true"]{border-color:var(--amber); color:var(--amber);}
+.js [lang]:not(html).hide{display:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="lang"><button type="button" data-l="bg">BG</button><button type="button" data-l="en">EN</button></div>
+
+<section lang="bg">
+<h1>Политика за поверителност</h1>
+<p class="muted">Приложение „Моят автомобил“ · В сила от 04.10.2026 г.</p>
+
+<div class="box"><b>Накратко:</b> данните за колите ти (дати, километри, разходи) стоят <b>само на твоя телефон</b>. Нямаш акаунт, не искаме име, ЕГН, телефон или имейл. Към нашия сървър отиват само анонимен номер на устройството и кой бутон е натиснат — за да работят промо кодовете и партньорските оферти.</div>
+
+<h2>1. Кои сме ние</h2>
+<p>Администратор на данните е „Паркбоок“ ЕООД (Parkbook Ltd.), ЕИК 208335426, със седалище и адрес на управление: гр. Бургас 8010, ж.к. Славейков, бл. 37, вх. 7, ет. 1, ап. 2. Имейл за въпроси относно личните данни: <a href="mailto:info@parkbook.bg">info@parkbook.bg</a>.</p>
+
+<h2>2. Какви данни остават само на телефона ти</h2>
+<p>Всичко, което въвеждаш в приложението — коли, срокове на гражданска отговорност, винетка, технически преглед, каско, масло и други, километри, зареждания и разходи, медали, избран език и външен вид на колата-талисман — се пази <b>само в паметта на браузъра/приложението на твоето устройство</b>. Ние не получаваме тези данни и не можем да ги видим. Ако изтриеш приложението или данните на браузъра, те се изтриват завинаги.</p>
+
+<h2>3. Какво се изпраща до нашия сървър</h2>
+<p>Ползваме сървър на доставчика Supabase в Европейския съюз (Ирландия). До него отиват само:</p>
+<ul>
+<li><b>Анонимен номер на устройството</b> — случаен код, създаден от приложението. Той не съдържа име, телефонен номер или друга информация за теб.</li>
+<li><b>Въведен промо код</b> — за да проверим дали е валиден и да не се ползва многократно.</li>
+<li><b>Натискане на бутон към партньор</b> (напр. „Поднови гражданската“, „Купи винетка“, „Запиши час“) — вид на продукта, партньор, анонимният номер на устройството и случаен номер на натискането.</li>
+<li><b>Потвърждение за покупка от партньор</b> — когато купиш нещо при партньор, той може да ни съобщи само случайния номер на натискането и датите на полицата/услугата, за да обновим сроковете в приложението ти. Партньорът не ни изпраща имената ти, номера на колата или данни за плащането.</li>
+</ul>
+<p>Цел: работа на промо кодовете, броене на препратените клиенти и изчисляване на възнаграждението ни от партньорите. Правно основание: нашият законен интерес да предоставяме и финансираме безплатната част на приложението (чл. 6, ал. 1, буква „е“ от GDPR). Тези записи пазим до 3 години, след което ги изтриваме или обезличаваме допълнително.</p>
+<p>Както при всеки сайт, доставчиците на хостинга (GitHub Pages и Supabase) могат да записват технически данни като IP адрес и вид на браузъра в служебни логове за сигурност, за кратък срок.</p>
+
+<h2>4. Местоположение</h2>
+<p>Бутонът „Авария“ може да поиска местоположението ти, <b>само ако го натиснеш</b> и разрешиш достъпа. Координатите се показват само на твоя екран, за да ги кажеш или изпратиш на пътната помощ. Ние не ги получаваме и не ги пазим. Ако избереш „Прати с SMS“ или „Карта“, те се предават на приложението, което сам си избрал.</p>
+
+<h2>5. Партньори и външни сайтове</h2>
+<p>Бутоните към застрахователни брокери, магазини и сервизи отварят техния сайт. „Моят автомобил“ не продава застраховки или стоки — само те препраща. Каквото въведеш на сайта на партньора, се обработва от него по неговата политика за поверителност. Плащането на данъци (бутоните към ePay.bg и pay.egov.bg, ако са включени) също става на техните сайтове.</p>
+
+<h2>6. Плащания</h2>
+<p>Премиум абонаментът (когато е наличен в магазините) се плаща през Google Play или App Store. Данните за картата ти се обработват само от Google или Apple — ние не ги получаваме. За проверка на абонамента може да ползваме услугата RevenueCat, която получава анонимен идентификатор на покупката.</p>
+
+<h2>7. Шрифтове</h2>
+<p>Уеб версията на приложението зарежда шрифтове от Google Fonts, при което браузърът ти се свързва с Google и предава IP адреса си.</p>
+
+<h2>8. Без реклами и следене</h2>
+<p>Не ползваме рекламни мрежи, бисквитки за следене или инструменти за анализ на поведението. Не продаваме данни.</p>
+
+<h2>9. Деца</h2>
+<p>Приложението е за шофьори и не е предназначено за деца под 16 години.</p>
+
+<h2>10. Твоите права</h2>
+<p>Имаш право на достъп, коригиране, изтриване, ограничаване и възражение срещу обработването, както и на преносимост на данните. Тъй като не знаем кой си, за да намерим записите ти, ще трябва да ни дадеш анонимния номер на устройството (можем да ти кажем как да го видиш). Пиши ни на <a href="mailto:info@parkbook.bg">info@parkbook.bg</a> — отговаряме до 30 дни. Имаш право да подадеш жалба до Комисията за защита на личните данни (<a href="https://www.cpdp.bg" target="_blank" rel="noopener">www.cpdp.bg</a>).</p>
+
+<h2>11. Промени</h2>
+<p>При промяна ще обновим тази страница и датата горе. При съществени промени ще те уведомим в приложението.</p>
+</section>
+
+<section lang="en">
+<h1>Privacy Policy</h1>
+<p class="muted">“My Car” app (Моят автомобил) · Effective 4 October 2026</p>
+
+<div class="box"><b>In short:</b> your car data (dates, mileage, costs) stays <b>only on your phone</b>. There is no account, and we do not ask for your name, national ID number, phone or email. Our server receives only an anonymous device number and which button was tapped, so promo codes and partner offers can work.</div>
+
+<h2>1. Who we are</h2>
+<p>The data controller is Parkbook Ltd. („Паркбоок“ ЕООД), UIC 208335426, registered address: bl. 37, entr. 7, fl. 1, apt. 2, Slaveykov district, 8010 Burgas, Bulgaria. Privacy contact: <a href="mailto:info@parkbook.bg">info@parkbook.bg</a>.</p>
+
+<h2>2. Data that stays on your phone</h2>
+<p>Everything you enter — cars, expiry dates of third-party liability insurance, vignette, roadworthiness test, casco, oil and other services, mileage, refuels and costs, medals, language and the look of the mascot car — is stored <b>only in the browser/app storage on your device</b>. We do not receive it and cannot see it. If you delete the app or the browser data, it is gone for good.</p>
+
+<h2>3. What is sent to our server</h2>
+<p>We use a server provided by Supabase in the European Union (Ireland). It receives only:</p>
+<ul>
+<li><b>An anonymous device number</b> — a random code created by the app. It contains no name, phone number or other information about you.</li>
+<li><b>A promo code you enter</b> — to check it is valid and not reused.</li>
+<li><b>A tap on a partner button</b> (e.g. “Renew insurance”, “Buy vignette”, “Book”) — product type, partner, the anonymous device number and a random tap number.</li>
+<li><b>Purchase confirmation from a partner</b> — when you buy from a partner, they may send us only the random tap number and the policy/service dates, so we can update the dates in your app. The partner does not send us your name, registration number or payment details.</li>
+</ul>
+<p>Purpose: promo codes, counting referred customers and calculating our fee from partners. Legal basis: our legitimate interest in providing and funding the free part of the app (Art. 6(1)(f) GDPR). We keep these records for up to 3 years, then delete or further anonymise them.</p>
+<p>As with any website, our hosting providers (GitHub Pages and Supabase) may record technical data such as IP address and browser type in security logs for a short time.</p>
+
+<h2>4. Location</h2>
+<p>The “Breakdown” button may ask for your location <b>only when you tap it</b> and allow access. The coordinates are shown only on your screen so you can tell or send them to road assistance. We do not receive or store them. If you choose “Send by SMS” or “Map”, they are passed to the app you chose.</p>
+
+<h2>5. Partners and external websites</h2>
+<p>Buttons to insurance brokers, shops and garages open their websites. “My Car” does not sell insurance or goods — it only refers you. Anything you enter on a partner’s website is processed by that partner under its own privacy policy. Tax payments (buttons to ePay.bg and pay.egov.bg, if enabled) also happen on their websites.</p>
+
+<h2>6. Payments</h2>
+<p>The premium subscription (when available in the stores) is paid through Google Play or the App Store. Your card details are processed only by Google or Apple — we never receive them. To check subscription status we may use RevenueCat, which receives an anonymous purchase identifier.</p>
+
+<h2>7. Fonts</h2>
+<p>The web version of the app loads fonts from Google Fonts, which means your browser connects to Google and shares its IP address.</p>
+
+<h2>8. No ads or tracking</h2>
+<p>We do not use ad networks, tracking cookies or behavioural analytics. We do not sell data.</p>
+
+<h2>9. Children</h2>
+<p>The app is meant for drivers and is not directed at children under 16.</p>
+
+<h2>10. Your rights</h2>
+<p>You have the right to access, rectify, erase, restrict and object to processing, and to data portability. Because we do not know who you are, to find your records we will need your anonymous device number (we can tell you how to see it). Write to <a href="mailto:info@parkbook.bg">info@parkbook.bg</a> — we reply within 30 days. You may lodge a complaint with the Bulgarian Commission for Personal Data Protection (<a href="https://www.cpdp.bg" target="_blank" rel="noopener">www.cpdp.bg</a>).</p>
+
+<h2>11. Changes</h2>
+<p>If this policy changes we will update this page and the date above, and notify you in the app about significant changes.</p>
+</section>
+
+<p class="muted" style="margin-top:32px"><a href="terms.html">Общи условия / Terms of Use</a></p>
+</div>
+<script>
+// Показва езика, избран в приложението (същият ключ); бутоните горе го сменят
+document.documentElement.classList.add('js');
+function show(l){
+  document.querySelectorAll('section[lang]').forEach(s=>s.classList.toggle('hide', s.lang !== l));
+  document.querySelectorAll('.lang button').forEach(b=>b.setAttribute('aria-pressed', b.dataset.l === l));
+  document.documentElement.lang = l;
+}
+let l = 'bg';
+try{ l = new URLSearchParams(location.search).get('lang') || localStorage.getItem('car-tracker-lang-v1') || 'bg'; }catch(e){}
+show(l === 'en' ? 'en' : 'bg');
+document.querySelectorAll('.lang button').forEach(b=>b.addEventListener('click', ()=>show(b.dataset.l)));
+</script>
+</body>
+</html>

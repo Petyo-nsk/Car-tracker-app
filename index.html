@@ -27,6 +27,8 @@ html{scroll-padding-top:env(safe-area-inset-top,0px); height:100%;}
 body{height:100%; margin:0; background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif;}
 h1,.brand{font-family:'Space Grotesk',sans-serif;}
 .wrap{max-width:480px; margin:0 auto; padding:20px 18px 48px;}
+.legal{margin-top:28px; text-align:center; font-size:12px; color:var(--muted);}
+.legal a{color:var(--muted);}
 .brand{display:flex; align-items:center; gap:10px; margin-bottom:18px;}
 .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--amber); box-shadow:0 0 10px var(--amber);}
 .brand span{font-weight:700; font-size:17px;}
@@ -177,6 +179,8 @@ button{border:none; border-radius:10px; padding:12px; font-weight:700; font-size
   <div class="carSwitcher" id="carSwitcher"></div>
 
   <div id="mainArea"></div>
+
+  <div class="legal" id="legalLinks"></div>
 </div>
 
 <div class="overlay" id="overlay">
@@ -1211,7 +1215,13 @@ function openSos(){
   });
 }
 
-function renderAll(){ renderLangSwitch(); renderSwitcher(); renderMain(); }
+// Връзки към Политиката за поверителност и Общите условия (изискват се от Google Play и App Store)
+function renderLegal(){
+  document.getElementById('legalLinks').innerHTML =
+    `<a href="privacy.html">${tr('Поверителност','Privacy')}</a> · <a href="terms.html">${tr('Общи условия','Terms of Use')}</a>`;
+}
+
+function renderAll(){ renderLangSwitch(); renderSwitcher(); renderMain(); renderLegal(); }
 
 // Превключвател на езика горе вдясно
 function renderLangSwitch(){
