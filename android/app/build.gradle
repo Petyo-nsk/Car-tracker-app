@@ -16,8 +16,24 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Ключ за подписване на версиите за Google Play — пази се ИЗВЪН GitHub, в OneDrive\PARKBOOK-kluch
+    // (там е и паролата, в keystore.properties). Без него release версията излиза неподписана.
+    def keystorePropsFile = new File(System.getenv('PARKBOOK_KEYSTORE_PROPS') ?: 'C:/Users/nedel/OneDrive/PARKBOOK-kluch/keystore.properties')
+    signingConfigs {
+        if (keystorePropsFile.exists()) {
+            def ks = new Properties()
+            keystorePropsFile.withInputStream { ks.load(it) }
+            release {
+                storeFile new File(ks['storeFile'])
+                storePassword ks['storePassword']
+                keyAlias ks['keyAlias']
+                keyPassword ks['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
+            if (keystorePropsFile.exists()) signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
