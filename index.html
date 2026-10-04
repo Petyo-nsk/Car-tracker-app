@@ -243,6 +243,8 @@ const VEHICLE_TYPES = {car:{label:tr('Кола','Car'), icon:'🚗'}, moto:{labe
 function vehicleType(car){ return car && car.type === 'moto' ? 'moto' : 'car'; }
 // Данък МПС е готов, но изключен по решение на Петьо (03.10.2026). За да се появи картата и медалът: TAX_ENABLED = true.
 const TAX_ENABLED = false;
+// Бутонът „Авария“ е скрит временно, за да видим как изглежда без него (04.10.2026). Връща се с SOS_ENABLED = true.
+const SOS_ENABLED = false;
 function defsFor(car){ const t = vehicleType(car); return defs.filter(d=>(!d.only || d.only===t) && (d.id !== 'tax' || TAX_ENABLED)); }
 // Сезонна бележка за мотора: пролетта — проверка преди сезона, зимата — акумулаторът
 function motoSeasonTip(){
@@ -944,7 +946,7 @@ function renderMain(){
   }
 
   box.innerHTML = `
-    <div class="carcard"><div><h2>${VEHICLE_TYPES[vehicleType(car)].icon} ${car.name}</h2><div class="sub">${tr('Текущ пробег','Current mileage')}: ${(car.km||0).toLocaleString(tr('bg-BG','en-GB'))} ${tr('км','km')}</div></div><button class="sosBtn" id="sosBtn" type="button">🆘 ${tr('Авария','Breakdown')}</button></div>
+    <div class="carcard"><div><h2>${VEHICLE_TYPES[vehicleType(car)].icon} ${car.name}</h2><div class="sub">${tr('Текущ пробег','Current mileage')}: ${(car.km||0).toLocaleString(tr('bg-BG','en-GB'))} ${tr('км','km')}</div></div>${SOS_ENABLED ? `<button class="sosBtn" id="sosBtn" type="button">🆘 ${tr('Авария','Breakdown')}</button>` : ''}</div>
     ${premiumBanner}
     <div class="summary withMascot ${summary.cls}">${mascotHtml(summary.cls)}<div><div class="smain">${summary.main}</div><div class="ssub">${summary.sub}</div>${summary.renewId ? `<button class="renewBtn hot" type="button" data-renew="${summary.renewId}">${RENEW_LABELS[summary.renewId]} →</button>` : ''}${summary.taxPay ? `<button class="renewBtn hot" type="button" data-tax-pay>${tr('Плати данъка','Pay the tax')} →</button>` : ''}</div></div>
     <button class="medalBar" id="medalBar" type="button"><span>🏅 ${medalCount}/${MEDALS.length} ${tr('медала','medals')}</span><span>${tr('Облечи колата →','Dress up your car →')}</span></button>
@@ -976,7 +978,7 @@ function renderMain(){
     lineEl.textContent = lastLine;
     mascotBtn.classList.remove('poke'); void mascotBtn.offsetWidth; mascotBtn.classList.add('poke');
   });
-  document.getElementById('sosBtn').addEventListener('click', openSos);
+  if(SOS_ENABLED) document.getElementById('sosBtn').addEventListener('click', openSos);
   document.getElementById('medalBar').addEventListener('click', openMedals);
   if(newMedals.length) showToast(`🏅 ${tr('Нов медал','New medal')}: ${newMedals.map(m=>m.name).join(', ')}`);
   box.querySelectorAll('[data-renew]').forEach(btn=>{
