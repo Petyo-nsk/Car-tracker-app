@@ -1283,6 +1283,7 @@ function plannedReminders(){
           ...remindText(SHORT_NAMES[def.id], car.name, st.expiry, before),
           schedule: {at, allowWhileIdle: true},
           smallIcon: 'ic_stat_car',
+          isExactNotification: false,   // без точни аларми — разрешението е махнато нарочно
           iconColor: '#E8A33D'
         });
       });
@@ -1296,11 +1297,14 @@ async function sendTestNotification(){
   if(!LN){ showToast(tr('Известията работят само в приложението за телефон.', 'Notifications only work in the phone app.')); return; }
   try{
     if(!await notifPermissionOk(LN)){ showToast(tr('Известията са забранени — разреши ги в настройките на телефона.', 'Notifications are blocked — allow them in the phone settings.')); return; }
+    lastTestAt = Date.now();
+    setTimeout(scheduleReminders, 70000);   // след като се покаже — изтриваме го
     await LN.schedule({notifications: [{
       id: TEST_NOTIF_ID,
       ...remindText(SHORT_NAMES.civil, tr('Тест', 'Test'), addDays(todayISO(), 1), 1),
       schedule: {at: new Date(Date.now() + 10000), allowWhileIdle: true},
       smallIcon: 'ic_stat_car',
+      isExactNotification: false,
       iconColor: '#E8A33D'
     }]});
     const n = plannedReminders().length;
@@ -1315,6 +1319,8 @@ function onBrandTap(){
 }
 document.getElementById('brandName').addEventListener('click', onBrandTap);
 var remindTimer = null;   // var: saveCars/saveData може да се извикат още при зареждане, преди този ред
+var REMIND_SIG_KEY = 'car-tracker-remind-sig-v2';
+var lastTestAt = 0;      // кога е пуснато тестовото известие (5 натискания на заглавието)   // какво е планирано последно (v2: без точни аларми)
 function scheduleReminders(){
   const LN = notifPlugin();
   if(!LN) return;
@@ -1323,11 +1329,22 @@ function scheduleReminders(){
     try{
       const list = plannedReminders();
       const pending = await LN.getPending();
+      // Тестовото известие се изтрива напълно, след като е показано — иначе приставката го пази
+      // и го показва пак при всяко стартиране на приложението във фона
+      if(Date.now() - lastTestAt > 60000) await LN.cancel({notifications: [{id: TEST_NOTIF_ID}]});
       const old = pending.notifications.filter(n=>n.id !== TEST_NOTIF_ID);
+      // Нищо не се е променило и всички вече чакат в телефона → не пипаме (без излишно преплaниране)
+      const sig = JSON.stringify(list.map(n=>[n.id, n.schedule.at.getTime(), n.title, n.body]));
+      let lastSig = null;
+      try{ lastSig = localStorage.getItem(REMIND_SIG_KEY); }catch(e){}
+      const pendingIds = new Set(old.map(n=>n.id));
+      if(sig === lastSig && list.every(n=>pendingIds.has(n.id)) && old.length === list.length) return;
       if(old.length) await LN.cancel({notifications: old.map(n=>({id: n.id}))});
+      try{ localStorage.removeItem(REMIND_SIG_KEY); }catch(e){}
       if(!list.length) return;
       if(!await notifPermissionOk(LN)) return;
       await LN.schedule({notifications: list});
+      try{ localStorage.setItem(REMIND_SIG_KEY, sig); }catch(e){}
     }catch(e){}
   }, 800);
 }

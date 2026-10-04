@@ -1,0 +1,134 @@
+# Google Play — страница на приложението
+
+Всичко за копиране в Play Console → **Grow → Store presence → Main store listing**.
+Основен език: **български (bg-BG)**. Превод: **английски (en-US)** — Play Console → „Manage translations“.
+Снимките са в `screenshots/` (bg и en), графиката и иконата — в тази папка.
+
+---
+
+## 🇧🇬 Български (bg-BG)
+
+### Име на приложението (до 30 знака)
+```
+Моят автомобил: ГО, винетка
+```
+
+### Кратко описание (до 80 знака)
+```
+Напомня кога изтичат гражданската, винетката, прегледът и каското на колата.
+```
+
+### Пълно описание (до 4000 знака)
+```
+Никога вече изтекла гражданска или винетка.
+
+„Моят автомобил“ пази всички срокове на колата ти на едно място и ти напомня навреме — 7 дни и 1 ден преди да изтече нещо. Без регистрация, без имейл, без ЕГН.
+
+🚗 ВСИЧКИ СРОКОВЕ НА ЕДНО МЯСТО
+• Гражданска отговорност — въвеждаш датата на плащане и периода, приложението смята кога изтича
+• Винетка — дневна, уикенд, седмична, месечна, тримесечна или годишна
+• Годишен технически преглед
+• Каско
+• Смяна на масло — по километри
+• Смяна на гуми
+
+🔔 НАПОМНЯНИЯ НАВРЕМЕ
+Известие на телефона 7 дни и 1 ден преди изтичане — дори без интернет. Колата-талисман горе на екрана винаги казва какво наближава.
+
+⛽ РАЗХОД НА ГОРИВО
+Записвай зарежданията и виж средния си разход (л/100 км) и колко си дал за гориво този месец.
+
+🆘 БУТОН „АВАРИЯ“
+Пътна помощ с едно натискане и точното ти местоположение — за да го кажеш или изпратиш по SMS. При пострадали — 112.
+
+🏍️ КОЛИ И МОТОРИ
+До 10 превозни средства в едно приложение — за цялото семейство или малка фирма.
+
+🏅 КОЛА-ТАЛИСМАН
+Усмихнатата кола се радва, когато всичко е наред, и мърмори, когато наближава срок. Печели медали за редовно подновяване и я облечи — шапка, очила, папийонка и цветове.
+
+🔒 ТВОИТЕ ДАННИ СИ ОСТАВАТ ПРИ ТЕБ
+Всичко, което въвеждаш, стои само на твоя телефон. Нямаш акаунт и не събираме лични данни.
+
+💳 БЕЗПЛАТНО И ПРЕМИУМ
+Маслото, гумите, зарежданията и бутонът „Авария“ са безплатни завинаги. Документите (гражданска, винетка, преглед, каско), напомнянията и повече коли са в Премиум — първият месец е безплатен, после 0,99 €/месец или 9,99 €/година. Абонаментът се управлява и спира по всяко време от Google Play.
+
+Приложението е на български и английски.
+
+„Моят автомобил“ не е застраховател или брокер. Бутоните към партньори само те отвеждат на техния сайт.
+
+Въпроси и идеи: info@parkbook.bg
+```
+
+---
+
+## 🇬🇧 English (en-US)
+
+### App name (max 30)
+```
+My Car: insurance & vignette
+```
+
+### Short description (max 80)
+```
+Reminds you when your car insurance, vignette, inspection and casco expire.
+```
+
+### Full description (max 4000)
+```
+Never drive with expired insurance or vignette again.
+
+“My Car” keeps all your car’s deadlines in one place and reminds you in time — 7 days and 1 day before anything expires. No sign-up, no email, no personal ID number.
+
+🚗 ALL DEADLINES IN ONE PLACE
+• Third-party liability insurance — enter the payment date and period, the app works out the expiry
+• Vignette — one day, weekend, week, month, quarter or year
+• Annual roadworthiness inspection
+• Casco (comprehensive insurance)
+• Oil change — by mileage
+• Tyre change
+
+🔔 REMINDERS IN TIME
+A phone notification 7 days and 1 day before expiry — even offline. The mascot car at the top always tells you what is coming up.
+
+⛽ FUEL CONSUMPTION
+Log your refuels and see your average consumption (L/100 km) and how much you spent on fuel this month.
+
+🆘 BREAKDOWN BUTTON
+Road assistance in one tap, plus your exact location to tell them or send by SMS. Anyone injured — 112.
+
+🏍️ CARS AND MOTORCYCLES
+Up to 10 vehicles in one app — for the whole family or a small business.
+
+🏅 MASCOT CAR
+The smiling car is happy when everything is in order and grumbles when a deadline is near. Earn medals for renewing on time and dress it up — hats, sunglasses, bow tie and colours.
+
+🔒 YOUR DATA STAYS WITH YOU
+Everything you enter stays on your phone only. There is no account and we do not collect personal data.
+
+💳 FREE AND PREMIUM
+Oil, tyres, refuels and the Breakdown button are free forever. Documents (insurance, vignette, inspection, casco), reminders and more vehicles are Premium — the first month is free, then €0.99/month or €9.99/year. Manage or cancel any time in Google Play.
+
+Available in Bulgarian and English.
+
+“My Car” is not an insurer or broker. Partner buttons only take you to the partner’s website.
+
+Questions and ideas: info@parkbook.bg
+```
+
+---
+
+## Други полета в Play Console
+
+| Поле | Стойност |
+|---|---|
+| Категория (App category) | **Auto & Vehicles** (Автомобили и превозни средства) |
+| Етикети (Tags) | Car maintenance, Insurance, Reminders (каквото Play предложи близко) |
+| Имейл за контакт | info@parkbook.bg (докато домейнът не работи — временно karaganskipetyo@gmail.com) |
+| Уебсайт | https://parkbook.bg (когато е готов) |
+| Политика за поверителност | https://petyo-nsk.github.io/Car-tracker-app/privacy.html (после на parkbook.bg) |
+| Приложение или игра | App |
+| Безплатно или платено | Free (с покупки в приложението) |
+| Реклами | **No** — няма реклами |
+
+Попълването на „Data safety“, „Content rating“ и другите задължителни формуляри е в `forms.md`.
