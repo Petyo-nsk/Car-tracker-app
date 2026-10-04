@@ -243,8 +243,8 @@ const VEHICLE_TYPES = {car:{label:tr('Кола','Car'), icon:'🚗'}, moto:{labe
 function vehicleType(car){ return car && car.type === 'moto' ? 'moto' : 'car'; }
 // Данък МПС е готов, но изключен по решение на Петьо (03.10.2026). За да се появи картата и медалът: TAX_ENABLED = true.
 const TAX_ENABLED = false;
-// Бутонът „Авария“ е скрит временно, за да видим как изглежда без него (04.10.2026). Връща се с SOS_ENABLED = true.
-const SOS_ENABLED = false;
+// Бутонът „Авария“ се скрива с SOS_ENABLED = false (пробвано на 04.10.2026).
+const SOS_ENABLED = true;
 function defsFor(car){ const t = vehicleType(car); return defs.filter(d=>(!d.only || d.only===t) && (d.id !== 'tax' || TAX_ENABLED)); }
 // Сезонна бележка за мотора: пролетта — проверка преди сезона, зимата — акумулаторът
 function motoSeasonTip(){
