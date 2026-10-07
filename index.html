@@ -138,6 +138,12 @@ label{font-size:12.5px; color:var(--muted); display:block; margin:10px 0 5px;}
 label:first-of-type{margin-top:0;}
 input,select{width:100%; background:var(--panel2); border:1px solid var(--line); border-radius:9px; padding:10px 11px; color:var(--ink); font-size:14px; font-family:inherit;}
 input:focus,select:focus{outline:none; border-color:var(--amber);}
+.plateBox{border:1px dashed var(--line); border-radius:12px; padding:2px 12px 12px; margin-bottom:8px;}
+.plateRow{display:flex; gap:8px;}
+.plateRow input{flex:1; min-width:0; text-transform:uppercase; letter-spacing:.06em; font-weight:600;}
+.plateRow button{background:var(--amber); color:#1a1305; padding:10px 16px; white-space:nowrap;}
+.plateRow button:disabled{opacity:.5;}
+.plateBox .renewNote{margin:8px 0 0;}
 .calcExpiry{background:var(--panel2); border:1px dashed var(--line); border-radius:9px; padding:10px 11px; font-size:14px; font-weight:600; color:var(--amber);}
 .row2{display:flex; gap:10px;}
 .row2>div{flex:1;}
@@ -513,6 +519,67 @@ function vignetteExpiry(start, vtype){
     default:        return addDays(addMonths(start, 12), -1);                    // годишна
   }
 }
+// Ако датата е дошла от официалната проверка (rec.exp), вярваме на нея, а не на сметката по вид
+function vigEnd(rec){ return (rec && rec.exp) || vignetteExpiry(rec.date, rec.vtype); }
+
+// ==== Автоматична проверка на винетката по регистрационен номер ====
+// Питаме направо официалната проверка на БГ ТОЛ (check.bgtoll.bg) от телефона — номерът не минава през наш сървър.
+// Гражданската (Гаранционен фонд) и прегледът (ИААА) са зад „не съм робот“ — за тях ни трябва партньор.
+const PLATE_CYR = {'А':'A','В':'B','Е':'E','К':'K','М':'M','Н':'H','О':'O','Р':'P','С':'C','Т':'T','У':'Y','Х':'X'};
+function normalizePlate(s){
+  return String(s || '').toUpperCase().replace(/[АВЕКМНОРСТУХ]/g, c=>PLATE_CYR[c]).replace(/[^A-Z0-9]/g, '');
+}
+// БГ ТОЛ връща датите ту като текст, ту като число — вадим 'ГГГГ-ММ-ДД' по българско време
+function tollDate(v){
+  const sofia = (d)=>isNaN(d) ? null : d.toLocaleDateString('sv-SE', {timeZone:'Europe/Sofia'});
+  if(typeof v === 'number') return sofia(new Date(v < 1e11 ? v*1000 : v));
+  if(typeof v !== 'string') return null;
+  if(/T.*(Z|[+-]\d\d:?\d\d)$/.test(v)) return sofia(new Date(v));
+  let m = /(\d{4})-(\d{2})-(\d{2})/.exec(v);
+  if(m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = /(\d{2})\.(\d{2})\.(\d{4})/.exec(v);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
+}
+// Връща {from, to} за валидната винетка или null, ако няма. Без собствени хедъри — иначе БГ ТОЛ отказва заявката.
+async function fetchVignette(plate){
+  const res = await fetch(`https://check.bgtoll.bg/check/vignette/plate/BG/${encodeURIComponent(plate)}`);
+  if(!res.ok) throw new Error('bgtoll ' + res.status);
+  const v = (await res.json()).vignette;
+  if(!v) return null;
+  const pick = (re)=>{ for(const k of Object.keys(v)){ if(re.test(k)){ const d = tollDate(v[k]); if(d) return d; } } return null; };
+  const to = pick(/(date|valid\w*)to/i);
+  return to ? {from: pick(/(date|valid\w*)from/i), to} : null;
+}
+function vignetteRecFromToll(v){
+  const start = v.from || addDays(addMonths(v.to, -12), 1);
+  const span = Math.round((new Date(v.to) - new Date(start)) / 86400000) + 1;
+  const vtype = span <= 1 ? 'day' : span <= 3 ? 'weekend' : span <= 7 ? 'week' : span <= 31 ? 'month' : span <= 100 ? 'quarter' : 'year';
+  return {vtype, date: start, exp: v.to};
+}
+// Веднъж на ден, тихо: ако човекът си е купил нова винетка, датите се обновяват сами
+const VIG_AUTO_KEY = 'car-tracker-vignette-check-v1';
+async function autoCheckVignettes(){
+  if(DEMO_MODE || navigator.onLine === false) return;
+  if(!(getPremiumStatus().active || trialStatus().active)) return;
+  let last = {};
+  try{ last = JSON.parse(localStorage.getItem(VIG_AUTO_KEY)) || {}; }catch(e){}
+  for(const car of cars){
+    if(!car.plate || vehicleType(car) !== 'car' || last[car.id] === todayISO()) continue;
+    try{
+      const v = await fetchVignette(car.plate);
+      last[car.id] = todayISO();
+      if(!v || daysUntil(v.to) < 0) continue;
+      const data = getData(car.id);
+      const cur = data.vignette;
+      if(cur && cur.date && vigEnd(cur) >= v.to) continue;
+      data.vignette = vignetteRecFromToll(v);
+      saveData(car.id, data);
+      renderMain();
+      showToast(tr(`✅ ${car.name}: винетката е обновена от БГ ТОЛ — важи до ${fmtDate(v.to)}`, `✅ ${car.name}: vignette updated from BG Toll — valid until ${fmtDate(v.to)}`));
+    }catch(e){}   // няма връзка — ще опитаме при следващо отваряне
+  }
+  try{ localStorage.setItem(VIG_AUTO_KEY, JSON.stringify(last)); }catch(e){}
+}
 function addMonths(dateStr, months){
   const d = new Date(dateStr);
   d.setMonth(d.getMonth() + parseInt(months,10));
@@ -575,7 +642,7 @@ function statusFor(def, data, currentKm){
     return {cls:'ok', label:tr('Валидна','Valid'), days:d, expiry};
   }
   if(def.mode==='vignette'){
-    const expiry = vignetteExpiry(rec.date, rec.vtype);
+    const expiry = vigEnd(rec);
     const d = daysUntil(expiry);
     if(d<=7) return {cls:'over', label: d<0 ? tr('Изтекла','Expired') : (d===0 ? tr('Днес','Today') : daysLabel(d)), days:d, expiry};
     if(d<=15) return {cls:'soon', label:daysLabel(d), days:d, expiry};
@@ -833,7 +900,7 @@ function detailFor(def, data){
     return `${fmtDate(rec.date)} · ${rec.period} ${tr('мес.','mo.')} → ${tr('изтича','expires')} ${fmtDate(addMonths(rec.date, rec.period))}`;
   }
   if(def.mode==='vignette'){
-    return `${VIGNETTE_TYPES[rec.vtype] || VIGNETTE_TYPES.year} · ${tr('от','from')} ${fmtDate(rec.date)} → ${tr('изтича','expires')} ${fmtDate(vignetteExpiry(rec.date, rec.vtype))}`;
+    return `${VIGNETTE_TYPES[rec.vtype] || VIGNETTE_TYPES.year} · ${tr('от','from')} ${fmtDate(rec.date)} → ${tr('изтича','expires')} ${fmtDate(vigEnd(rec))}`;
   }
   if(def.mode==='date') return `${fmtDate(rec.date)}${rec.expiry ? ` → ${tr('изтича','expires')} ` + fmtDate(rec.expiry) : ''}`;
   const fmtKm = v => v ? (parseInt(v,10)||0).toLocaleString(tr('bg-BG','en-GB')) + tr(' км',' km') : '';
@@ -1598,12 +1665,53 @@ function openSheet(id, carId){
     document.getElementById('sheetFields').insertAdjacentHTML('beforeend', `<label>${tr('Изтича на','Expires on')}</label><div class="calcExpiry" id="calcExpiry">—</div>`);
     const dateInp = document.querySelector('#sheetFields [data-f="date"]');
     const typeSel = document.querySelector('#sheetFields [data-f="vtype"]');
+    // Проверка по регистрационен номер: попълва вида и датите от БГ ТОЛ; exp е точната крайна дата оттам
+    const car = cars.find(c=>c.id===carId) || {};
+    document.getElementById('sheetFields').insertAdjacentHTML('afterbegin', `
+      <div class="plateBox">
+        <label>${tr('Регистрационен номер','Registration number')}</label>
+        <div class="plateRow"><input id="plateInp" type="text" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="CA1234AB" value="${escapeHtml(car.plate || '')}"><button type="button" id="plateBtn">${tr('Провери','Check')}</button></div>
+        <p class="renewNote" id="plateMsg">${tr('Проверяваме в официалната система на БГ ТОЛ и попълваме датите вместо теб — после и сами, веднъж на ден. Номерът отива направо там, не при нас.', 'We check the official BG Toll system and fill in the dates for you — and then once a day on our own. The number goes straight there, not to us.')}</p>
+      </div>
+      <input type="hidden" data-f="exp" value="${rec.exp || ''}">`);
+    const expInp = document.querySelector('#sheetFields [data-f="exp"]');
     const updateExpiry = ()=>{
-      document.getElementById('calcExpiry').textContent = dateInp.value ? fmtDate(vignetteExpiry(dateInp.value, typeSel.value)) : tr('— (избери начало на валидност)', '— (pick the start date)');
+      document.getElementById('calcExpiry').textContent = dateInp.value ? fmtDate(expInp.value || vignetteExpiry(dateInp.value, typeSel.value)) : tr('— (избери начало на валидност)', '— (pick the start date)');
     };
-    dateInp.addEventListener('input', updateExpiry);
-    typeSel.addEventListener('change', updateExpiry);
+    // Ръчна промяна — вече не важи датата от проверката
+    const manual = ()=>{ expInp.value = ''; updateExpiry(); };
+    dateInp.addEventListener('input', manual);
+    typeSel.addEventListener('change', manual);
     updateExpiry();
+    const plateInp = document.getElementById('plateInp'), plateBtn = document.getElementById('plateBtn'), plateMsg = document.getElementById('plateMsg');
+    plateBtn.addEventListener('click', async ()=>{
+      const plate = normalizePlate(plateInp.value);
+      if(!plate && car.plate){
+        // Празно поле = „забрави номера“: спира и автоматичната проверка
+        delete car.plate; saveCars();
+        plateMsg.textContent = tr('Номерът е изтрит. Вече не проверяваме автоматично.', 'Number removed. No more automatic checks.');
+        return;
+      }
+      if(plate.length < 4){ plateMsg.textContent = tr('Напиши номера на колата, например CA1234AB.', 'Type the plate number, e.g. CA1234AB.'); return; }
+      plateInp.value = plate;
+      plateBtn.disabled = true;
+      plateMsg.textContent = tr('Проверяваме в БГ ТОЛ…', 'Checking BG Toll…');
+      try{
+        const v = await fetchVignette(plate);
+        if(car.id){ car.plate = plate; saveCars(); }
+        if(!v || daysUntil(v.to) < 0){
+          plateMsg.textContent = tr(`БГ ТОЛ не намира валидна винетка за ${plate}.`, `BG Toll finds no valid vignette for ${plate}.`) + (v ? ' ' + tr(`Последната е изтекла на ${fmtDate(v.to)}.`, `The last one expired on ${fmtDate(v.to)}.`) : '');
+        } else {
+          const r = vignetteRecFromToll(v);
+          typeSel.value = r.vtype; dateInp.value = r.date; expInp.value = r.exp;
+          updateExpiry();
+          plateMsg.textContent = tr(`✅ Намерена: ${VIGNETTE_TYPES[r.vtype].toLowerCase()}, важи до ${fmtDate(r.exp)}. Натисни „Запази“.`, `✅ Found: ${VIGNETTE_TYPES[r.vtype].toLowerCase()}, valid until ${fmtDate(r.exp)}. Tap “Save”.`);
+        }
+      }catch(e){
+        plateMsg.textContent = tr('Няма връзка с БГ ТОЛ. Опитай пак или въведи датите на ръка.', 'Could not reach BG Toll. Try again or enter the dates by hand.');
+      }
+      plateBtn.disabled = false;
+    });
   }
   // Тих линк към магазин вътре в картата — и за премиум: човекът сам го търси, не е реклама
   const offers = partsOffersFor(id, cars.find(c=>c.id===carId));
@@ -1687,7 +1795,8 @@ document.getElementById('overlay').addEventListener('click', (e)=>{ if(e.target.
 document.getElementById('saveBtn').addEventListener('click', ()=>{
   const editing = document.getElementById('overlay').dataset.editing;
   const vals = {};
-  document.querySelectorAll('#sheetFields input, #sheetFields select').forEach(inp=>{ vals[inp.dataset.f] = inp.value; });
+  document.querySelectorAll('#sheetFields [data-f]').forEach(inp=>{ vals[inp.dataset.f] = inp.value; });
+  if(vals.exp === '') delete vals.exp;
 
   if(editing==='__newcar'){
     const id = 'car'+Date.now();
@@ -1954,6 +2063,7 @@ renderAll();
 checkPendingRenew();
 loadPartners();
 syncStoreSubscription();
+autoCheckVignettes();
 
 // PWA — позволява „Добави към началния екран“ и работа без интернет
 if('serviceWorker' in navigator){
