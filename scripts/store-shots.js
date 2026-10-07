@@ -53,7 +53,7 @@ const T = {
       'Всички срокове на колата — на едно място',
       'Напомня 7 дни и 1 ден преди изтичане',
       'Разход на гориво и сметка за месеца',
-      'Авария? Помощ с едно натискане',
+      'Винетката — проверка по номера на колата',
       'Колата-талисман: медали и облекла',
       'Коли и мотори — до 10 в едно приложение'
     ],
@@ -67,7 +67,7 @@ const T = {
       'All your car’s deadlines in one place',
       'Reminders 7 days and 1 day before expiry',
       'Fuel consumption and monthly spend',
-      'Breakdown? Help in one tap',
+      'Vignette — checked by your plate number',
       'Mascot car: medals and outfits',
       'Cars and motorcycles — up to 10 in one app'
     ],
@@ -143,7 +143,8 @@ const accent = s => s.replace(/^([^—:?]+)([—:?])/, '<b>$1</b>$2');
       { civilDays: 120 },
       { civilDays: 7, action: async p => { await p.addStyleTag({ content: '.item[data-id=oil],.item[data-id=tires],.item[data-id=fuel],#medalBar{display:none!important}' }); }, notif: true },
       { civilDays: 120, action: async p => { await p.click('.item[data-id="fuel"]'); } },
-      { civilDays: 120, action: async p => { await p.click('#sosBtn'); } },
+      // Бутонът „Авария“ е скрит (07.10.2026) — на негово място е проверката на винетката по номер
+      { civilDays: 120, action: async p => { await p.click('.item[data-id="vignette"]'); await p.type('#plateInp', 'CA1234AB'); } },
       { civilDays: 120, action: async p => { await p.click('#medalBar'); } },
       { civilDays: 120, active: 'car2' }
     ];

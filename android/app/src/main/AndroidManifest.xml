@@ -33,9 +33,12 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Бутонът „Авария“ показва местоположението — само докато приложението е отворено (без заден план) -->
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- Бутонът „Авария“ е скрит (07.10.2026), затова не искаме местоположение. Ако се върне (SOS_ENABLED = true
+         в index.html), върни и двата реда:
+         uses-permission android.permission.ACCESS_COARSE_LOCATION
+         uses-permission android.permission.ACCESS_FINE_LOCATION -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" tools:node="remove" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" tools:node="remove" />
     <!-- Напомнянията около 10:00 не трябва да са до секундата; Google Play проверява строго точните аларми -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" tools:node="remove" />
 </manifest>

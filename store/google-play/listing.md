@@ -38,8 +38,8 @@
 ⛽ РАЗХОД НА ГОРИВО
 Записвай зарежданията и виж средния си разход (л/100 км) и колко си дал за гориво този месец.
 
-🆘 БУТОН „АВАРИЯ“
-Пътна помощ с едно натискане и точното ти местоположение — за да го кажеш или изпратиш по SMS. При пострадали — 112.
+🔎 ВИНЕТКАТА СЕ ПРОВЕРЯВА САМА
+Въвеждаш регистрационния номер и приложението взима датите на винетката от официалната система на БГ ТОЛ. После проверява само, веднъж на ден.
 
 🏍️ КОЛИ И МОТОРИ
 До 10 превозни средства в едно приложение — за цялото семейство или малка фирма.
@@ -51,7 +51,7 @@
 Всичко, което въвеждаш, стои само на твоя телефон. Нямаш акаунт и не събираме лични данни.
 
 💳 БЕЗПЛАТНО И ПРЕМИУМ
-Маслото, гумите, зарежданията и бутонът „Авария“ са безплатни завинаги. Документите (гражданска, винетка, преглед, каско), напомнянията и повече коли са в Премиум — първият месец е безплатен, после 0,99 €/месец или 9,99 €/година. Абонаментът се управлява и спира по всяко време от Google Play. Допълнителните форми на колата се купуват еднократно (по 1,19 € или всички за 5,99 €) и остават твои завинаги.
+Маслото, гумите и зарежданията са безплатни завинаги. Документите (гражданска, винетка, преглед, каско), напомнянията и повече коли са в Премиум — първият месец е безплатен, после 0,99 €/месец или 9,99 €/година. Абонаментът се управлява и спира по всяко време от Google Play. Допълнителните форми на колата се купуват еднократно (по 1,19 € или всички за 5,99 €) и остават твои завинаги.
 
 Приложението е на български и английски.
 
@@ -94,8 +94,8 @@ A phone notification 7 days and 1 day before expiry — even offline. The mascot
 ⛽ FUEL CONSUMPTION
 Log your refuels and see your average consumption (L/100 km) and how much you spent on fuel this month.
 
-🆘 BREAKDOWN BUTTON
-Road assistance in one tap, plus your exact location to tell them or send by SMS. Anyone injured — 112.
+🔎 THE VIGNETTE CHECKS ITSELF
+Enter the registration number and the app takes the vignette dates from the official BG Toll system. Then it re-checks on its own once a day.
 
 🏍️ CARS AND MOTORCYCLES
 Up to 10 vehicles in one app — for the whole family or a small business.
@@ -107,7 +107,7 @@ The smiling car is happy when everything is in order and grumbles when a deadlin
 Everything you enter stays on your phone only. There is no account and we do not collect personal data.
 
 💳 FREE AND PREMIUM
-Oil, tyres, refuels and the Breakdown button are free forever. Documents (insurance, vignette, inspection, casco), reminders and more vehicles are Premium — the first month is free, then €0.99/month or €9.99/year. Manage or cancel any time in Google Play. Extra car shapes are one-time purchases (€1.19 each or all for €5.99) and stay yours forever.
+Oil, tyres and refuels are free forever. Documents (insurance, vignette, inspection, casco), reminders and more vehicles are Premium — the first month is free, then €0.99/month or €9.99/year. Manage or cancel any time in Google Play. Extra car shapes are one-time purchases (€1.19 each or all for €5.99) and stay yours forever.
 
 Available in Bulgarian and English.
 
