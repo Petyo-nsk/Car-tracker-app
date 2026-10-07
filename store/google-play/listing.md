@@ -45,13 +45,13 @@
 До 10 превозни средства в едно приложение — за цялото семейство или малка фирма.
 
 🏅 КОЛА-ТАЛИСМАН
-Усмихнатата кола се радва, когато всичко е наред, и мърмори, когато наближава срок. Печели медали за редовно подновяване и я облечи — шапка, очила, папийонка и цветове.
+Усмихнатата кола се радва, когато всичко е наред, и мърмори, когато наближава срок. Печели медали за редовно подновяване и я облечи — шапка, очила, папийонка и цветове. Смени и формата ѝ: седан, джип, спортно купе, ретро, кабрио, такси, рали и още.
 
 🔒 ТВОИТЕ ДАННИ СИ ОСТАВАТ ПРИ ТЕБ
 Всичко, което въвеждаш, стои само на твоя телефон. Нямаш акаунт и не събираме лични данни.
 
 💳 БЕЗПЛАТНО И ПРЕМИУМ
-Маслото, гумите, зарежданията и бутонът „Авария“ са безплатни завинаги. Документите (гражданска, винетка, преглед, каско), напомнянията и повече коли са в Премиум — първият месец е безплатен, после 0,99 €/месец или 9,99 €/година. Абонаментът се управлява и спира по всяко време от Google Play.
+Маслото, гумите, зарежданията и бутонът „Авария“ са безплатни завинаги. Документите (гражданска, винетка, преглед, каско), напомнянията и повече коли са в Премиум — първият месец е безплатен, после 0,99 €/месец или 9,99 €/година. Абонаментът се управлява и спира по всяко време от Google Play. Допълнителните форми на колата се купуват еднократно (по 1,19 € или всички за 5,99 €) и остават твои завинаги.
 
 Приложението е на български и английски.
 
@@ -101,13 +101,13 @@ Road assistance in one tap, plus your exact location to tell them or send by SMS
 Up to 10 vehicles in one app — for the whole family or a small business.
 
 🏅 MASCOT CAR
-The smiling car is happy when everything is in order and grumbles when a deadline is near. Earn medals for renewing on time and dress it up — hats, sunglasses, bow tie and colours.
+The smiling car is happy when everything is in order and grumbles when a deadline is near. Earn medals for renewing on time and dress it up — hats, sunglasses, bow tie and colours. Change its shape too: sedan, SUV, sports coupé, retro, convertible, taxi, rally and more.
 
 🔒 YOUR DATA STAYS WITH YOU
 Everything you enter stays on your phone only. There is no account and we do not collect personal data.
 
 💳 FREE AND PREMIUM
-Oil, tyres, refuels and the Breakdown button are free forever. Documents (insurance, vignette, inspection, casco), reminders and more vehicles are Premium — the first month is free, then €0.99/month or €9.99/year. Manage or cancel any time in Google Play.
+Oil, tyres, refuels and the Breakdown button are free forever. Documents (insurance, vignette, inspection, casco), reminders and more vehicles are Premium — the first month is free, then €0.99/month or €9.99/year. Manage or cancel any time in Google Play. Extra car shapes are one-time purchases (€1.19 each or all for €5.99) and stay yours forever.
 
 Available in Bulgarian and English.
 

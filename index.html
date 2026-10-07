@@ -61,6 +61,16 @@ h1,.brand{font-family:'Space Grotesk',sans-serif;}
 .skinChip.on{border-color:var(--amber); color:var(--amber);}
 .skinChip.lock{opacity:.5;}
 .skinChip .sw{display:inline-block; width:11px; height:11px; border-radius:50%; margin-right:6px; vertical-align:-1px;}
+.shapeGrid{display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-bottom:10px;}
+.shapeChip{background:var(--panel2); color:var(--ink); border:1px solid var(--line); border-radius:12px; padding:6px 4px 7px; font-size:11px; font-weight:600; display:flex; flex-direction:column; align-items:center; gap:2px; line-height:1.25;}
+.shapeChip.on{border-color:var(--amber); color:var(--amber);}
+.shapeChip small{font-size:10px; font-weight:600; color:var(--muted);}
+.shapeChip.lock .shapeThumb{opacity:.55;}
+.shapeThumb{width:100%; max-width:58px; height:auto; overflow:visible;}
+.packBtn{width:100%; background:none; color:var(--amber); border:1px dashed var(--amber); border-radius:10px; padding:9px; font-size:12.5px; margin-bottom:14px;}
+.shopOne{display:flex; justify-content:center; margin:4px 0 12px;}
+.shopOne .shapeThumb{max-width:150px;}
+.shopPack{display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; margin:4px 0 12px;}
 .skinNote{font-size:11.5px; color:var(--muted); line-height:1.5;}
 .carcard .sub{font-size:12.5px; color:var(--muted);}
 .summary{background:var(--panel2); border:1px solid var(--line); border-radius:14px; padding:12px 16px; margin-bottom:14px; display:flex; align-items:flex-start; gap:10px;}
@@ -807,15 +817,54 @@ const SUMMARY_IDS = ['civil', 'vignette', 'inspection', 'casco', 'tax'];
 // Настроението идва от цвета на лентата: ok → весела, soon → притеснена, over → тъжна, none → сънлива.
 const MASCOT_MOODS = {ok:'happy', soon:'worried', over:'sad', none:'sleepy'};
 const MASCOT_EYES = {happy:'#5cc27f', worried:'#e0a83d', sad:'#d9634f', sleepy:'#8b93a1'};
+// Формата на колата (скин): сменя се само горната част и детайлите — „лицето“ (фарове, уста) е едно и също.
+// back = зад колата, mid = върху кабината, front = върху каросерията (преди лицето); big = големи гуми;
+// accDy мести шапките и очилата според височината на покрива. Без лога и имена на марки.
+function shapeParts(id, body){
+  const hatch = {cabin:'M31 46 L37 31 Q39 26 45 26 L55 26 Q61 26 63 31 L69 46 Z', glass:'M37 44 L41.5 33 Q42.5 30.5 45.5 30.5 L54.5 30.5 Q57.5 30.5 58.5 33 L63 44 Z'};
+  const sedan = {cabin:'M27 46 L35.5 31 Q37.5 26 43 26 L57 26 Q62.5 26 64.5 31 L73 46 Z', glass:'M33.5 44 L39.6 33 Q40.6 30.5 43.6 30.5 L56.4 30.5 Q59.4 30.5 60.4 33 L66.5 44 Z',
+    back:`<rect x="24.5" y="38.5" width="6" height="4.2" rx="1.6" fill="${body}"/><rect x="69.5" y="38.5" width="6" height="4.2" rx="1.6" fill="${body}"/>`};
+  const bumper = '<rect x="18.5" y="63.2" width="63" height="3.4" rx="1.6" fill="#c9ced6"/>';
+  const checker = Array.from({length:10}, (_, i)=>`<rect x="${24 + i*5.2}" y="43.5" width="2.6" height="2" fill="#14171c"/>`).join('');
+  return ({
+    hatch,
+    sedan,
+    wagon: {cabin:'M29 46 L32.5 30 Q33.5 26 38 26 L62 26 Q66.5 26 67.5 30 L71 46 Z', glass:'M34.5 44 L37 32.5 Q37.5 30.5 40 30.5 L60 30.5 Q62.5 30.5 63 32.5 L65.5 44 Z',
+      back:'<rect x="36" y="22.6" width="28" height="1.7" rx=".85" fill="#14171c"/><rect x="39" y="23" width="1.7" height="3.5" fill="#14171c"/><rect x="59.3" y="23" width="1.7" height="3.5" fill="#14171c"/>'},
+    suv: {big:true, cabin:'M28 46 L31 29 Q31.5 26 35 26 L65 26 Q68.5 26 69 29 L72 46 Z', glass:'M33 44 L35.2 32.2 Q35.5 30.5 37.5 30.5 L62.5 30.5 Q64.5 30.5 64.8 32.2 L67 44 Z',
+      back:'<rect x="38" y="22.4" width="24" height="3.8" rx="1.9" fill="#14171c"/>' + [42, 47.3, 52.7, 58].map(x=>`<circle cx="${x}" cy="24.3" r="1.2" fill="#f5d06b"/>`).join('')},
+    coupe: {accDy:4, cabin:'M30 46 L39 34 Q41 30 46 30 L54 30 Q59 30 61 34 L70 46 Z', glass:'M36.5 44.5 L42 36 Q43 34 46 34 L54 34 Q57 34 58 36 L63.5 44.5 Z',
+      back:`<rect x="18.5" y="37.5" width="63" height="3" rx="1.5" fill="${body}"/><rect x="24" y="39" width="2.6" height="6" fill="${body}"/><rect x="73.4" y="39" width="2.6" height="6" fill="${body}"/>`},
+    retro: {accDy:1, cabin:'M30 46 Q30 26 50 26 Q70 26 70 46 Z', glass:'M35.5 44 Q36 30.5 50 30.5 Q64 30.5 64.5 44 Z',
+      mid2:`<path d="M50 30.5 L50 44" stroke="${body}" stroke-width="1.6"/>`, front:bumper},
+    cabrio: {accDy:6, cabin:'M33 46 L37.5 35 Q38.5 33 41 33 L59 33 Q61.5 33 62.5 35 L67 46 Z', glass:'M37 45 L40.3 37 Q40.8 36 42 36 L58 36 Q59.2 36 59.7 37 L63 45 Z',
+      back:'<rect x="39" y="28" width="7" height="9" rx="3" fill="#14171c"/><rect x="54" y="28" width="7" height="9" rx="3" fill="#14171c"/>'},
+    pickup: {big:true, cabin:'M32 46 L34.5 29 Q35 26 38.5 26 L61.5 26 Q65 26 65.5 29 L68 46 Z', glass:'M36.8 44 L38.6 32.2 Q38.9 30.5 40.8 30.5 L59.2 30.5 Q61.1 30.5 61.4 32.2 L63.2 44 Z',
+      back:`<rect x="22" y="36" width="56" height="10" rx="2" fill="${body}" opacity=".6"/>`, front:bumper},
+    camper: {cabin:'M24 46 L26 30 Q26.5 26 31 26 L69 26 Q73.5 26 74 30 L76 46 Z', glass:'M29.5 44 L31 33 Q31.3 30.8 33.8 30.8 L66.2 30.8 Q68.7 30.8 69 33 L70.5 44 Z',
+      back:'<rect x="36" y="20.6" width="11" height="5.6" rx="1.3" fill="#b0703a"/><rect x="49" y="21.8" width="14" height="4.4" rx="1.3" fill="#5b8def"/><rect x="33" y="25.4" width="34" height="1.4" rx=".7" fill="#14171c"/>'},
+    taxi: {...sedan,
+      back: sedan.back + '<rect x="42.5" y="19.8" width="15" height="6.6" rx="1.6" fill="#f5d06b" stroke="#14171c" stroke-width=".8"/><text x="50" y="24.9" text-anchor="middle" font-size="4.4" font-weight="700" fill="#14171c" font-family="Inter,sans-serif">TAXI</text>',
+      front:`<rect x="24" y="43.5" width="52" height="2" fill="#f5d06b"/>${checker}`},
+    rally: {...hatch,
+      back:'<rect x="22.5" y="70" width="14" height="7.5" rx="1" fill="#d9634f"/><rect x="63.5" y="70" width="14" height="7.5" rx="1" fill="#d9634f"/>',
+      mid:'<path d="M46.2 26.4 L44.6 46 M53.8 26.4 L55.4 46" stroke="#f3f1ec" stroke-width="2.2"/>',
+      front:[39, 46.3, 53.7, 61].map(x=>`<circle cx="${x}" cy="43.3" r="2.5" fill="#f3f1ec" stroke="#14171c" stroke-width=".9"/>`).join('')}
+  })[id] || hatch;
+}
 function mascotHtml(summaryCls){
   const mood = MASCOT_MOODS[summaryCls] || 'happy';
-  const skin = effectiveSkin();
+  return `<button class="mascot ${mood}" type="button" aria-label="${tr('Натисни колата — ще ти каже нещо', 'Tap the car — it will say something')}"><svg viewBox="16 18 70 62" aria-hidden="true">${carSvgInner(mood, effectiveSkin())}</svg></button>`;
+}
+// Рисунката на колата — за лентата горе и (still = без мигане) за малките картинки при избора на форма
+function carSvgInner(mood, skin, still){
   const body = (SKIN_COLORS.find(c=>c.id===skin.color) || SKIN_COLORS[0]).hex;
+  const shape = shapeParts(skin.shape, body);
   const eye = MASCOT_EYES[mood];
   const eyes = [32, 68].map(x=>{
     if(mood==='sleepy') return `<path d="M${x-5} 54 Q${x} 57.5 ${x+5} 54" fill="none" stroke="${eye}" stroke-width="2.6" stroke-linecap="round"/>`;
     const glow = `<circle cx="${x}" cy="54" r="7.5" fill="${eye}" opacity=".25"/>`;
-    const lid = mood==='happy' ? `<rect class="lid" x="${x-6}" y="48.5" width="12" height="11" rx="5" fill="#14171c"/>` : '';
+    const lid = mood==='happy' && !still ? `<rect class="lid" x="${x-6}" y="48.5" width="12" height="11" rx="5" fill="#14171c"/>` : '';
     return `${glow}<circle cx="${x}" cy="54" r="5.2" fill="${eye}"/><circle cx="${x-1.6}" cy="52.4" r="1.5" fill="#fff" opacity=".75"/>${lid}`;
   }).join('');
   // Веждите: вътрешните краища нагоре = притеснение/тъга
@@ -832,15 +881,20 @@ function mascotHtml(summaryCls){
     sleepy:  '<text class="zz" x="72" y="30" font-size="10" font-weight="700" fill="#8b93a1" font-family="Space Grotesk,sans-serif">z</text><text class="zz" x="79" y="23" font-size="7" font-weight="700" fill="#8b93a1" font-family="Space Grotesk,sans-serif">z</text>',
     happy:   ''
   }[mood];
-  return `<button class="mascot ${mood}" type="button" aria-label="${tr('Натисни колата — ще ти каже нещо', 'Tap the car — it will say something')}"><svg viewBox="16 18 70 62" aria-hidden="true">
+  const wheels = shape.big
+    ? '<rect x="22" y="62" width="14" height="15.5" rx="4" fill="#14171c"/><rect x="64" y="62" width="14" height="15.5" rx="4" fill="#14171c"/>'
+    : '<rect x="24" y="63" width="11" height="13" rx="3.5" fill="#14171c"/><rect x="65" y="63" width="11" height="13" rx="3.5" fill="#14171c"/>';
+  // Папийонката стои под лицето — не се мести с покрива
+  const acc = ACCESSORY_SVG[skin.acc] ? (skin.acc === 'bowtie' || !shape.accDy ? ACCESSORY_SVG[skin.acc] : `<g transform="translate(0 ${shape.accDy})">${ACCESSORY_SVG[skin.acc]}</g>`) : '';
+  return `
     <ellipse cx="50" cy="77" rx="28" ry="2.6" fill="#000" opacity=".3"/>
-    <path d="M31 46 L37 31 Q39 26 45 26 L55 26 Q61 26 63 31 L69 46 Z" fill="${body}"/>
-    <path d="M37 44 L41.5 33 Q42.5 30.5 45.5 30.5 L54.5 30.5 Q57.5 30.5 58.5 33 L63 44 Z" fill="#3a4150"/>
+    ${shape.back || ''}
+    <path d="${shape.cabin}" fill="${body}"/>${shape.mid || ''}
+    <path d="${shape.glass}" fill="#3a4150"/>${shape.mid2 || ''}
     <rect x="20" y="43" width="60" height="23" rx="9" fill="${body}"/>
-    <rect x="24" y="63" width="11" height="13" rx="3.5" fill="#14171c"/><rect x="65" y="63" width="11" height="13" rx="3.5" fill="#14171c"/>
+    ${wheels}${shape.front || ''}
     <rect x="23" y="46" width="54" height="17" rx="7" fill="#14171c"/>
-    ${brows}${eyes}${mouth}${extra}${ACCESSORY_SVG[skin.acc] || ''}
-  </svg></button>`;
+    ${brows}${eyes}${mouth}${still ? '' : extra}${acc}`;
 }
 
 function buildSummary(defsList, data, km, type){
@@ -1160,6 +1214,28 @@ const SKIN_COLORS = [
   {id:'pink',  hex:'#e87fb0', name:tr('Розово','Pink'),  premium:true},
   {id:'red',   hex:'#d9634f', name:tr('Червено','Red'),  premium:true}
 ];
+// Форми на колата (скинове) — решение на Петьо от 07.10.2026: и двата модела.
+// Без нищо = безплатна; premium = идва с абонамента/пробния период (заключва се, когато той свърши);
+// paid = еднократна покупка по 1,19 € — остава завинаги, и без абонамент. Пакетът за 5,99 € отключва всички платени.
+// Продуктите в магазина са еднократни (non-consumable): skin_<id> и skin_pack. Цените тук са резервни —
+// в приложението се показва цената от магазина.
+const OWNED_KEY = 'car-tracker-owned-skins-v1';
+const SKIN_PRICE = '1,19 €';
+const SKIN_PACK = {id:'pack', name:tr('Всички платени форми','All paid shapes'), paid:true, priceText:'5,99 €'};
+const SKIN_SHAPES = [
+  {id:'hatch',  name:tr('Хечбек','Hatchback')},
+  {id:'sedan',  name:tr('Седан','Sedan')},
+  {id:'wagon',  name:tr('Комби','Estate'),            premium:true},
+  {id:'suv',    name:tr('Джип','SUV'),                premium:true},
+  {id:'coupe',  name:tr('Спортно купе','Sports coupé'), paid:true},
+  {id:'retro',  name:tr('Ретро','Retro'),             paid:true},
+  {id:'cabrio', name:tr('Кабрио','Convertible'),      paid:true},
+  {id:'pickup', name:tr('Пикап','Pickup'),            paid:true},
+  {id:'camper', name:tr('Кемпер','Camper van'),       paid:true},
+  {id:'taxi',   name:tr('Такси','Taxi'),              paid:true},
+  {id:'rally',  name:tr('Рали','Rally'),              paid:true}
+];
+const skinProductId = (item)=>'skin_' + item.id;
 // Аксесоарите се рисуват в същия viewBox като колата (16 18 70 62)
 const ACCESSORY_SVG = {
   glasses: '<rect x="39.5" y="33" width="9" height="6" rx="2.5" fill="#101216"/><rect x="51.5" y="33" width="9" height="6" rx="2.5" fill="#101216"/><path d="M48.5 35.5 L51.5 35.5" stroke="#101216" stroke-width="1.6"/><rect x="41" y="34" width="3" height="1.4" rx=".7" fill="#fff" opacity=".5"/><rect x="53" y="34" width="3" height="1.4" rx=".7" fill="#fff" opacity=".5"/>',
@@ -1202,7 +1278,9 @@ function evaluateMedals(state){
   return fresh;
 }
 
+function ownedSkins(){ return readJson(OWNED_KEY, {}); }
 function skinUnlocked(item){
+  if(item.paid){ const o = ownedSkins(); return !!(o[item.id] || o.pack); }
   if(item.premium) return hasFullAccess();
   if(item.medal) return !!getMedals()[item.medal];
   return true;
@@ -1212,7 +1290,8 @@ function effectiveSkin(){
   const s = readJson(SKIN_KEY, {});
   const acc = SKIN_ACCESSORIES.find(a=>a.id===s.acc);
   const col = SKIN_COLORS.find(c=>c.id===s.color);
-  return {acc: acc && skinUnlocked(acc) ? acc.id : 'none', color: col && skinUnlocked(col) ? col.id : 'amber'};
+  const shp = SKIN_SHAPES.find(x=>x.id===s.shape);
+  return {acc: acc && skinUnlocked(acc) ? acc.id : 'none', color: col && skinUnlocked(col) ? col.id : 'amber', shape: shp && skinUnlocked(shp) ? shp.id : 'hatch'};
 }
 function lockText(item){
   if(item.premium) return tr('Премиум', 'Premium');
@@ -1229,9 +1308,18 @@ function openMedals(){
     const sw = kind === 'color' ? `<span class="sw" style="background:${item.hex}"></span>` : '';
     return `<button type="button" class="skinChip ${on ? 'on' : ''} ${open ? '' : 'lock'}" data-kind="${kind}" data-id="${item.id}" ${open ? '' : 'disabled'}>${sw}${open ? '' : '🔒 '}${item.name}${open ? '' : ` · ${lockText(item)}`}</button>`;
   };
+  const shapeBtn = (item)=>{
+    const open = skinUnlocked(item);
+    const tag = open ? '' : item.paid ? SKIN_PRICE : lockText(item);
+    return `<button type="button" class="shapeChip ${skin.shape===item.id ? 'on' : ''} ${open ? '' : 'lock'}" data-shape="${item.id}">${shapeThumb(item.id, skin.color)}<span>${item.name}</span>${tag ? `<small>🔒 ${tag}</small>` : ''}</button>`;
+  };
+  const paidLeft = SKIN_SHAPES.filter(x=>x.paid && !skinUnlocked(x)).length;
   document.getElementById('renewTitle').textContent = tr('Медали и облекла', 'Medals and outfits');
   document.getElementById('renewBody').innerHTML = `
     <div class="medalGrid">${medalsHtml}</div>
+    <div class="skinTitle">${tr('Форма на колата','Car shape')}</div>
+    <div class="shapeGrid">${SKIN_SHAPES.map(shapeBtn).join('')}</div>
+    ${paidLeft > 1 ? `<button type="button" class="packBtn" id="packBtn">🎁 ${tr(`Всички платени форми завинаги — ${SKIN_PACK.priceText}`, `All paid shapes forever — ${SKIN_PACK.priceText}`)}</button>` : ''}
     <div class="skinTitle">${tr('Облекло','Outfit')}</div>
     <div class="skinRow">${SKIN_ACCESSORIES.map(a=>chip(a, 'acc', skin.acc===a.id)).join('')}</div>
     <div class="skinTitle">${tr('Цвят','Colour')}</div>
@@ -1248,6 +1336,103 @@ function openMedals(){
     renderMain();
     openMedals();
   }));
+  document.querySelectorAll('#renewBody .shapeChip').forEach(b=>b.addEventListener('click', ()=>{
+    const item = SKIN_SHAPES.find(x=>x.id===b.dataset.shape);
+    if(skinUnlocked(item)){
+      const s = effectiveSkin();
+      s.shape = item.id;
+      writeJson(SKIN_KEY, s);
+      renderMain();
+      openMedals();
+    } else if(item.paid){
+      openSkinShop(item);
+    } else {
+      ov.style.display = 'none';
+      if(isNativeApp()) openStoreSubscribe(); else openWebSubscribe();
+    }
+  }));
+  const pack = document.getElementById('packBtn');
+  if(pack) pack.addEventListener('click', ()=>openSkinShop(SKIN_PACK));
+}
+function shapeThumb(shapeId, color){
+  return `<svg class="shapeThumb" viewBox="16 14 70 66" aria-hidden="true">${carSvgInner('happy', {shape:shapeId, color, acc:'none'}, true)}</svg>`;
+}
+
+// ==== Магазин за форми: еднократна покупка през Google Play / App Store (RevenueCat) ====
+// Без връзка с магазина НЕ отключваме нищо — само показваме формата и цената.
+function applyOwnedSkins(info){
+  const ids = (info && info.allPurchasedProductIdentifiers) || [];
+  const owned = ownedSkins();
+  let changed = false;
+  [SKIN_PACK, ...SKIN_SHAPES.filter(x=>x.paid)].forEach(item=>{
+    if(ids.includes(skinProductId(item)) && !owned[item.id]){ owned[item.id] = todayISO(); changed = true; }
+  });
+  if(changed) writeJson(OWNED_KEY, owned);
+  return changed;
+}
+async function openSkinShop(item){
+  const isPack = item.id === 'pack';
+  const color = effectiveSkin().color;
+  const preview = isPack
+    ? `<div class="shopPack">${SKIN_SHAPES.filter(x=>x.paid).map(x=>shapeThumb(x.id, color)).join('')}</div>`
+    : `<div class="shopOne">${shapeThumb(item.id, color)}</div>`;
+  const body = document.getElementById('renewBody');
+  document.getElementById('renewTitle').textContent = item.name;
+  body.innerHTML = `${preview}
+    <p class="subNote">${isPack
+      ? tr('Всички платени форми наведнъж — и тези, които добавим по-късно. Еднократна покупка: остават твои завинаги, и без абонамент.', 'All paid shapes at once — including the ones we add later. One-time purchase: yours forever, even without a subscription.')
+      : tr('Еднократна покупка: формата остава твоя завинаги, и без абонамент. Цветовете и облеклата важат и за нея.', 'One-time purchase: the shape is yours forever, even without a subscription. Colours and outfits work with it too.')}</p>
+    <button class="unlockBtn" type="button" id="skinBuy">${tr('Купи за','Buy for')} <span id="skinPrice">${isPack ? SKIN_PACK.priceText : SKIN_PRICE}</span></button>
+    <div class="subMsg" id="skinMsg"></div>
+    ${isPack ? '' : `<button class="cancel" type="button" id="skinPack" style="margin-bottom:8px;">🎁 ${tr(`Или всички за ${SKIN_PACK.priceText}`, `Or all of them for ${SKIN_PACK.priceText}`)}</button>`}
+    <button class="cancel" type="button" id="skinRestore" style="margin-bottom:8px;">${tr('Възстанови покупките', 'Restore purchases')}</button>
+    <button class="cancel" type="button" id="skinBack">${tr('Назад','Back')}</button>`;
+  document.getElementById('renewOverlay').style.display = 'flex';
+  const msg = document.getElementById('skinMsg');
+  const buyBtn = document.getElementById('skinBuy');
+  const soon = tr('Покупките ще работят в приложението от Google Play / App Store — скоро.', 'Purchases will work in the app from Google Play / the App Store — coming soon.');
+  document.getElementById('skinBack').addEventListener('click', openMedals);
+  if(!isPack) document.getElementById('skinPack').addEventListener('click', ()=>openSkinShop(SKIN_PACK));
+  let P = null, product = null;
+  try{ P = await rcInit(); }catch(e){}
+  if(P){
+    try{
+      const res = await P.getProducts({productIdentifiers:[skinProductId(item)], type:'NON_SUBSCRIPTION'});
+      product = res.products && res.products[0];
+      const priceEl = document.getElementById('skinPrice');
+      if(product && priceEl) priceEl.textContent = product.priceString;
+    }catch(e){}
+  }
+  const done = ()=>{
+    if(!isPack){ const s = effectiveSkin(); s.shape = item.id; writeJson(SKIN_KEY, s); }
+    renderMain();
+    openMedals();
+    showToast(tr('Готово — твоя е завинаги! 🎉', 'Done — it is yours forever! 🎉'));
+  };
+  buyBtn.addEventListener('click', async ()=>{
+    msg.textContent = '';
+    if(!P || !product){ msg.textContent = soon; return; }
+    buyBtn.disabled = true;
+    try{
+      const res = await P.purchaseStoreProduct({product});
+      applyCustomerInfo(res.customerInfo);
+      if(skinUnlocked(item)) done();
+    }catch(e){
+      const cancelled = e && (e.userCancelled || String(e.code) === '1');
+      if(!cancelled) msg.textContent = tr('Плащането не мина. Опитай пак.', 'The payment did not go through. Please try again.');
+    }
+    buyBtn.disabled = false;
+  });
+  document.getElementById('skinRestore').addEventListener('click', async ()=>{
+    msg.textContent = '';
+    if(!P){ msg.textContent = soon; return; }
+    try{
+      const {customerInfo} = await P.restorePurchases();
+      applyCustomerInfo(customerInfo);
+      if(skinUnlocked(item)) done();
+      else msg.textContent = tr('Не намерихме тази покупка за този акаунт в магазина.', 'We could not find this purchase for this store account.');
+    }catch(e){ msg.textContent = tr('Няма връзка с магазина. Опитай пак.', 'Could not reach the store. Please try again.'); }
+  });
 }
 
 // ==== Бутон „Авария“ ====
@@ -1443,7 +1628,8 @@ function rcInit(){
 // Записва какво казва магазинът: активен абонамент → премиум; спрян абонамент → махаме премиума от магазина.
 // Не пипа премиума от промо код.
 function applyCustomerInfo(info){
-  const active = !!(info && info.entitlements && info.entitlements.active && info.entitlements.active[RC_ENTITLEMENT]);
+  applyOwnedSkins(info);   // еднократно купените форми — те не зависят от абонамента
+  const active =!!(info && info.entitlements && info.entitlements.active && info.entitlements.active[RC_ENTITLEMENT]);
   let fromStore = false;
   try{ fromStore = localStorage.getItem(STORE_SUB_KEY) === '1'; }catch(e){}
   if(active){
