@@ -21,7 +21,7 @@ No account or login. Premium features (documents, reminders) can be unlocked wit
 ```
 
 ## 4. Content rating (въпросник IARC)
-- Имейл: info@parkbook.bg
+- Имейл: support@parkbook.bg
 - Категория: **All Other App Types** (Utility / Productivity)
 - Насилие, сексуално съдържание, език, наркотици, хазарт: **No** на всичко
 - Потребителите могат ли да общуват/споделят съдържание помежду си: **No**
@@ -48,7 +48,7 @@ No account or login. Premium features (documents, reminders) can be unlocked wit
 |---|---|
 | Does your app collect or share any of the required user data types? | **Yes** |
 | Is all of the user data collected by your app encrypted in transit? | **Yes** (само HTTPS) |
-| Do you provide a way for users to request that their data is deleted? | **Yes** — по имейл info@parkbook.bg (описано в политиката, т. 10) |
+| Do you provide a way for users to request that their data is deleted? | **Yes** — по имейл support@parkbook.bg (описано в политиката, т. 10) |
 
 ### Типове данни — само тези два:
 

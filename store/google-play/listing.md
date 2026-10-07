@@ -57,7 +57,7 @@
 
 „Моят автомобил“ не е застраховател или брокер. Бутоните към партньори само те отвеждат на техния сайт.
 
-Въпроси и идеи: info@parkbook.bg
+Въпроси и идеи: support@parkbook.bg
 ```
 
 ---
@@ -113,7 +113,7 @@ Available in Bulgarian and English.
 
 “My Car” is not an insurer or broker. Partner buttons only take you to the partner’s website.
 
-Questions and ideas: info@parkbook.bg
+Questions and ideas: support@parkbook.bg
 ```
 
 ---
@@ -124,7 +124,7 @@ Questions and ideas: info@parkbook.bg
 |---|---|
 | Категория (App category) | **Auto & Vehicles** (Автомобили и превозни средства) |
 | Етикети (Tags) | Car maintenance, Insurance, Reminders (каквото Play предложи близко) |
-| Имейл за контакт | info@parkbook.bg (докато домейнът не работи — временно karaganskipetyo@gmail.com) |
+| Имейл за контакт | support@parkbook.bg (докато домейнът не работи — временно karaganskipetyo@gmail.com) |
 | Уебсайт | https://parkbook.bg (когато е готов) |
 | Политика за поверителност | https://petyo-nsk.github.io/Car-tracker-app/privacy.html (после на parkbook.bg) |
 | Приложение или игра | App |
