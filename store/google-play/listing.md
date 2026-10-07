@@ -124,7 +124,7 @@ Questions and ideas: support@parkbook.bg
 |---|---|
 | Категория (App category) | **Auto & Vehicles** (Автомобили и превозни средства) |
 | Етикети (Tags) | Car maintenance, Insurance, Reminders (каквото Play предложи близко) |
-| Имейл за контакт | support@parkbook.bg (докато домейнът не работи — временно karaganskipetyo@gmail.com) |
+| Имейл за контакт | support@parkbook.bg |
 | Уебсайт | https://parkbook.bg (когато е готов) |
 | Политика за поверителност | https://petyo-nsk.github.io/Car-tracker-app/privacy.html (после на parkbook.bg) |
 | Приложение или игра | App |
