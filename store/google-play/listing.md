@@ -51,7 +51,7 @@
 Всичко, което въвеждаш, стои само на твоя телефон. Нямаш акаунт и не събираме лични данни.
 
 💳 БЕЗПЛАТНО И ПРЕМИУМ
-Маслото, гумите и зарежданията са безплатни завинаги. Документите (гражданска, винетка, преглед, каско), напомнянията и повече коли са в Премиум — първият месец е безплатен, после 0,99 €/месец или 9,99 €/година. Абонаментът се управлява и спира по всяко време от Google Play. Допълнителните форми на колата се купуват еднократно (по 1,19 € или всички за 5,99 €) и остават твои завинаги.
+Приложението е безплатно: всички срокове (гражданска, винетка, преглед, каско), напомнянията, маслото, гумите и зарежданията за една кола. Премиум е само ако имаш повече превозни средства — до 10 коли и мотори за 0,99 €/месец или 9,99 €/година; абонаментът се управлява и спира по всяко време от Google Play. Допълнителните форми на колата се купуват еднократно (по 1,19 € или всички за 5,99 €) и остават твои завинаги.
 
 Приложението е на български и английски.
 
@@ -107,7 +107,7 @@ The smiling car is happy when everything is in order and grumbles when a deadlin
 Everything you enter stays on your phone only. There is no account and we do not collect personal data.
 
 💳 FREE AND PREMIUM
-Oil, tyres and refuels are free forever. Documents (insurance, vignette, inspection, casco), reminders and more vehicles are Premium — the first month is free, then €0.99/month or €9.99/year. Manage or cancel any time in Google Play. Extra car shapes are one-time purchases (€1.19 each or all for €5.99) and stay yours forever.
+The app is free: all deadlines (insurance, vignette, inspection, casco), reminders, oil, tyres and refuels for one car. Premium is only for people with more vehicles — up to 10 cars and motorcycles for €0.99/month or €9.99/year; manage or cancel any time in Google Play. Extra car shapes are one-time purchases (€1.19 each or all for €5.99) and stay yours forever.
 
 Available in Bulgarian and English.
 

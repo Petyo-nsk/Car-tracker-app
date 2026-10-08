@@ -251,17 +251,17 @@ const defs = [
   {id:'fuel', title:tr('Зареждания','Refuelling'), mode:'fuel', fields:[], premium:false, labels:{}},
   {id:'chain', title:tr('Верига (смазване / смяна)','Chain (lube / replace)'), mode:'km', fields:['date','km','nextKm'], premium:false, only:'moto',
    labels:{date:tr('Дата','Date'),km:tr('Пробег при обслужване (км)','Mileage at service (km)'),nextKm:tr('Следващо обслужване (км)','Next service (km)')}},
-  {id:'civil', title:tr('Гражданска отговорност','Liability insurance (MTPL)'), mode:'date_period', fields:['date','period'], premium:true,
+  {id:'civil', title:tr('Гражданска отговорност','Liability insurance (MTPL)'), mode:'date_period', fields:['date','period'],
    labels:{date:tr('Дата на плащане','Payment date'),period:tr('Период','Period')}},
   // Мотоциклетите в България не плащат е-винетка (bgtoll.bg) — затова само за коли
-  {id:'vignette', title:tr('Винетка','Vignette'), mode:'vignette', fields:['vtype','date'], premium:true, only:'car',
+  {id:'vignette', title:tr('Винетка','Vignette'), mode:'vignette', fields:['vtype','date'], only:'car',
    labels:{vtype:tr('Вид','Type'),date:tr('Начало на валидност','Valid from')}},
-  {id:'inspection', title:tr('Годишен технически преглед','Annual technical inspection'), mode:'date', fields:['date','expiry'], premium:true,
+  {id:'inspection', title:tr('Годишен технически преглед','Annual technical inspection'), mode:'date', fields:['date','expiry'],
    labels:{date:tr('Дата на преглед','Inspection date'),expiry:tr('Изтича на','Expires on')}},
-  {id:'casco', title:tr('Каско','Casco (comprehensive)'), mode:'date', fields:['date','expiry'], premium:true,
+  {id:'casco', title:tr('Каско','Casco (comprehensive)'), mode:'date', fields:['date','expiry'],
    labels:{date:tr('Дата на плащане','Payment date'),expiry:tr('Изтича на','Expires on')}},
   // Данък МПС: сроковете са по закон (ЗМДТ, чл. 60) и са едни и същи за всички — човекът само отбелязва какво е платил
-  {id:'tax', title:tr('Данък МПС','Vehicle tax'), mode:'tax', fields:['status'], premium:true,
+  {id:'tax', title:tr('Данък МПС','Vehicle tax'), mode:'tax', fields:['status'],
    labels:{status:tr('Платено за','Paid for')}}
 ];
 // Вид превозно средство: 'car' (по подразбиране — и за старите записи без вид) или 'moto'
@@ -572,7 +572,6 @@ function vignetteRecFromToll(v){
 const VIG_AUTO_KEY = 'car-tracker-vignette-check-v1';
 async function autoCheckVignettes(){
   if(DEMO_MODE || navigator.onLine === false) return;
-  if(!(getPremiumStatus().active || trialStatus().active)) return;
   let last = {};
   try{ last = JSON.parse(localStorage.getItem(VIG_AUTO_KEY)) || {}; }catch(e){}
   for(const car of cars){
@@ -992,14 +991,15 @@ function renderSwitcher(){
       }
       note.textContent = isPremium
         ? tr(`Достигнат е максимумът от ${MAX_CARS_PREMIUM} превозни средства.`, `You have reached the maximum of ${MAX_CARS_PREMIUM} vehicles.`)
-        : tr('Втора кола или мотор е достъпна само с абонамент — 9,99 €/година.', 'A second car or motorcycle needs a subscription — €9.99/year.');
+        : tr('Една кола е безплатна. Втора кола или мотор — с Премиум: 0,99 €/месец или 9,99 €/година.', 'One car is free. A second car or a motorcycle needs Premium: €0.99/month or €9.99/year.');
     }
   });
 }
 
 function openAddCar(){
   document.getElementById('sheetTitle').textContent = tr('Добави кола или мотор', 'Add a car or motorcycle');
-  const typeOpts = Object.entries(VEHICLE_TYPES).map(([k,v])=>`<option value="${k}">${v.icon} ${v.label}</option>`).join('');
+  // Моторът е в Премиум (решение от 08.10.2026); безплатно е една кола
+  const typeOpts = Object.entries(VEHICLE_TYPES).map(([k,v])=>`<option value="${k}" ${k === 'moto' && !isPremium ? 'disabled' : ''}>${v.icon} ${v.label}${k === 'moto' && !isPremium ? ` — 🔒 ${tr('Премиум','Premium')}` : ''}</option>`).join('');
   document.getElementById('sheetFields').innerHTML = `
     <label>${tr('Вид','Type')}</label><select data-f="type">${typeOpts}</select>
     <label>${tr('Марка и модел','Make and model')}</label><input data-f="name" placeholder="${tr('Напр. VW Golf VII, 2016 или Honda CB500F','E.g. VW Golf VII, 2016 or Honda CB500F')}">
@@ -1022,7 +1022,7 @@ function renderMain(){
   const trial = trialStatus();
   premiumStatus = getPremiumStatus();
   isPremium = premiumStatus.active;
-  const fullAccess = isPremium || trial.active;
+  const fullAccess = true;   // от 08.10.2026 всички документи и напомняния са безплатни; премиум = повече превозни средства и мотор
   const premiumBanner = (isPremium && !premiumStatus.permanent)
     ? `<div class="premiumBanner">${tr(`Премиум достъп (от промо код) — остават ${premiumStatus.daysLeft} дни, до ${fmtDate(premiumStatus.until)}`, `Premium access (promo code) — ${premiumStatus.daysLeft} days left, until ${fmtDate(premiumStatus.until)}`)}</div>`
     : '';
@@ -1059,23 +1059,15 @@ function renderMain(){
     <div class="locked"><div class="lockIcon">🔒</div><div class="item-title">${def.title}</div><div class="item-detail">${tr('Заключено','Locked')}</div></div>
   `).join('');
 
+  // Решение на Петьо (08.10.2026): приложението е безплатно — всички документи и напомняния за 1 кола.
+  // Печелим от комисиони на партньорите. Премиум е само за повече превозни средства (до 10) и за мотор.
+  // Полето за промо код остава — партньорите раздават кодове за премиум.
   let unlockBlock = '';
-  if(locked.length){
-    if(trial.active){
-      unlockBlock = `<div class="unlockCard"><div class="unlockTitle">${tr(`Пробен период: ${trial.daysLeft} дни остават`, `Free trial: ${trial.daysLeft} days left`)}</div><div class="unlockSub">${tr('После 0,99 €/месец или 9,99 €/година', 'Then €0.99/month or €9.99/year')}</div></div>`;
-    } else if(!trial.started){
-      unlockBlock = `<div class="unlockCard"><div class="unlockTitle">${tr('1 месец безплатно','1 month free')}</div><div class="unlockSub">${tr('Пробвай всичко за 1 кола, без карта','Try everything for 1 car, no card needed')}</div>
-        <button class="unlockBtn" id="trialBtn" style="margin-bottom:10px;">${tr('Започни безплатния месец','Start the free month')}</button>
-        <div class="promoRow"><input id="promoInput" placeholder="${tr('Промокод (по избор)','Promo code (optional)')}"><button class="applyPromo" id="applyPromoBtn">${tr('Приложи','Apply')}</button></div>
-        <div class="promoMsg" id="promoMsg"></div>
-        <div class="unlockSub" style="margin:10px 0 6px;">${tr('или директно абонамент','or subscribe right away')}</div>
-        <button class="unlockBtn" id="unlockBtn">${tr('0,99 €/мес. или 9,99 €/год.','€0.99/mo. or €9.99/yr.')}</button></div>`;
-    } else {
-      unlockBlock = `<div class="unlockCard"><div class="unlockTitle">${tr('Пробният период изтече','Your free trial has ended')}</div><div class="unlockSub">${tr('0,99 €/месец или 9,99 €/година','€0.99/month or €9.99/year')}</div>
-        <div class="promoRow"><input id="promoInput" placeholder="${tr('Промокод (по избор)','Promo code (optional)')}"><button class="applyPromo" id="applyPromoBtn">${tr('Приложи','Apply')}</button></div>
-        <div class="promoMsg" id="promoMsg"></div>
-        <button class="unlockBtn" id="unlockBtn">${tr('Абонирай се','Subscribe')}</button></div>`;
-    }
+  if(!isPremium){
+    unlockBlock = `<div class="unlockCard"><div class="unlockTitle">${tr('Имаш втора кола или мотор?','Got a second car or a motorcycle?')}</div><div class="unlockSub">${tr(`Премиум: до ${MAX_CARS_PREMIUM} коли и мотори в едно приложение — 0,99 €/месец или 9,99 €/година. Всичко за една кола е безплатно.`, `Premium: up to ${MAX_CARS_PREMIUM} cars and motorcycles in one app — €0.99/month or €9.99/year. Everything for one car is free.`)}</div>
+      <div class="promoRow"><input id="promoInput" placeholder="${tr('Промокод (по избор)','Promo code (optional)')}"><button class="applyPromo" id="applyPromoBtn">${tr('Приложи','Apply')}</button></div>
+      <div class="promoMsg" id="promoMsg"></div>
+      <button class="unlockBtn" id="unlockBtn">${tr('Премиум за повече коли','Premium for more vehicles')}</button></div>`;
   }
 
   box.innerHTML = `
@@ -1516,7 +1508,6 @@ async function notifPermissionOk(LN){
   return perm.display === 'granted';
 }
 function plannedReminders(){
-  if(!hasFullAccess()) return [];
   const out = [];
   const nowMs = Date.now();
   cars.forEach(car=>{
